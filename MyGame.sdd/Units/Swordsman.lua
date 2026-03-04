@@ -14,7 +14,7 @@ local unitDef  =  {
 --Unit limitations and properties
     Description = "A Fast Raider Unit",
     MaxDamage = 575,
-    RadarDistance = 0,
+    RadarDistance = 100,
     SightDistance = 500,
     SoundCategory = "Vech",
     Upright = false,

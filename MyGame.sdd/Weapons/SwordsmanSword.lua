@@ -25,7 +25,7 @@ weaponDef = {
 	--apperance--	
 	thickness               = 2,
 	coreThickness           = 0.25,
-	largeBeamLaser          = false,
+	largeBeamLaser          = true,
 	laserFlareSize          = 2,
 	renderType              = 0,
 	rgbColor                = [[0.8 0.8 0.4]],
