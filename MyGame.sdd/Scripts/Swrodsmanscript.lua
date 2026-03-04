@@ -59,6 +59,9 @@ function delayedStopAnimation()
 end
 
 ----aimining & fire weapon
+
+local Base = piece "Base"
+
 function script.AimFromWeapon1() 
 	return Base
 	
@@ -76,7 +79,7 @@ function script.FireWeapon1()
 		--EmitSfx(Flare, huntermuzzleflash)
 end
 
----death animation
+death animation
 function script.Killed(recentDamage, maxHealth, corpsetype)
 	Explode (Body, SFX.SHATTER)
 	local severity = recentDamage / maxHealth
