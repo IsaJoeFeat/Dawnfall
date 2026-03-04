@@ -1,6 +1,6 @@
 local weaponName = "SwordsmanSword"
 weaponDef = {
-	weaponType              = "Sword",
+	weaponType              = "Melee",
 	name                    = "Shortsword",
 	beamlaser               = 0,
 	--physics / aiming--
@@ -8,7 +8,7 @@ weaponDef = {
 	 weaponVelocity         = 500,
 	lineOfSight             = true,
 	minIntensity            = 1,      
-	range                   = 25,
+	range                   = 50,
 	reloadtime              = 0.75,
 	sweepfire               = false,
 	targetMoveError         = 0.1,
