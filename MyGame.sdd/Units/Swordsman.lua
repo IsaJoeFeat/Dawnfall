@@ -4,7 +4,7 @@ local unitDef  =  {
 --Internal settings
     BuildPic = "filename.png",
     Category = "LAND RAIDER NOTAIR NOTSUB LIGHT",
-    ObjectName = "Stumpy.s3o",
+    ObjectName = "Humanoid.s3o",
     name = "Swordsman",
     Side = "Beefys",
     TEDClass = "Melee",
