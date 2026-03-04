@@ -1,8 +1,8 @@
 local modinfo = {
-	name = "My Game",
-	shortname = "MG",
-	game = "My Game",
-	shortgame = "MG",
+	name = "Dawnfall",
+	shortname = "DF",
+	game = "Dawnfall",
+	shortgame = "DF",
 	description = "Yo mama",
 	version = "v0.1",
 	modtype = 1,
