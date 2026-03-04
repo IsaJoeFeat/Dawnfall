@@ -30,10 +30,10 @@ local unitDef  =  {
     FootprintZ = 2,
     MaxSlope = 20,
     MaxVelocity = 2.53, --1.83
-	--speed = 76 or 55
+    Speed = 115
     MaxWaterDepth = 10,
     MovementClass = "1x1",
-    TurnRate = 2000,
+    TurnRate = 3000,
     
 --Abilities
     Builder = false,
@@ -42,7 +42,7 @@ local unitDef  =  {
     CanMove = true,
     CanPatrol = true,
     CanStop = true,
-    LeaveTracks = false,
+    LeaveTracks = true,
     Reclaimable = false,
     
 --Hitbox
