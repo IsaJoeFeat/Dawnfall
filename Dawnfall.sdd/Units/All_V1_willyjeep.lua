@@ -26,6 +26,16 @@ local unitDef = {
     explodeAs = "TINY_EXPLOSION",
     selfDestructAs = "TINY_EXPLOSION",
 
+--Abilities
+    Builder = false,
+    CanAttack = true,
+    CanGuard = true,
+    CanMove = true,
+    CanPatrol = true,
+    CanStop = true,
+    LeaveTracks = false,
+    Reclaimable = false,
+
     -- Movement (Physics)
     speed = 4.8,
     maxAcc = 0.4,
