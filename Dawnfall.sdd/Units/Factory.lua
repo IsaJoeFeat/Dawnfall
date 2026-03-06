@@ -49,7 +49,7 @@ buildoptions =
 	{
 	[[constructor]],
 	[[stumpy]],
-	[[swordsman]],
+	[[all_v1_willyjeep]],
 	[[flare]],
 	[[duron]],
 	},
