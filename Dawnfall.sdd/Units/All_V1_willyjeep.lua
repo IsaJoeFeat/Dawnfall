@@ -37,6 +37,7 @@ local unitDef = {
     Reclaimable = false,
 
     -- Movement (Physics)
+    speed = 200
     Acceleration = 0.3,
     BrakeRate = 0.2,
     turnRate = 500,
