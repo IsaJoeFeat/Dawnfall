@@ -50,6 +50,7 @@ buildoptions =
 	[[constructor]],
 	[[stumpy]],
 	[[all_v1_willyjeep]],
+	[[all_v1_cruisermk1]],
 	[[flare]],
 	[[duron]],
 	},
