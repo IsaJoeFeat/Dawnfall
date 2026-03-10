@@ -6,5 +6,9 @@ local sideData = {
 		name = "Allies",
 		startUnit = "commander",
 	},
+  	{
+    		name = 'Axis',
+    		startunit = 'commander',
+  	},
 }
 return sideData

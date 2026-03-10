@@ -12,14 +12,14 @@ local unitDef = {
     upright = false, -- true for Infantry, false for Tanks
 
     -- Economy
-    buildCostMetal = 35,
-    buildCostEnergy = 400,
-    buildTime = 450,
+    buildCostMetal = 135,
+    buildCostEnergy = 1950,
+    buildTime = 4050,
     builder = true,
     workerTime = 0, -- Set if unit builds things
 
     -- Combat & Health
-    health = 150,
+    health = 1380,
     autoHeal = 0,
     idleAutoHeal = 5,
     --corpse = "unit_dead_feature",
@@ -27,7 +27,7 @@ local unitDef = {
     selfDestructAs = "TINY_EXPLOSION",
 
 --Abilities
-    CanAttack = 1,
+    CanAttack = 0,
     CanGuard = 1,
     CanMove = 1,
     CanPatrol = 1,
@@ -40,9 +40,9 @@ local unitDef = {
 --Building
 ShowNanoSpray = true,
 CanBeAssisted = true,	
-workerTime = 5,
+workerTime = 90,
 repairSpeed = 5,
-buildDistance = 120,
+buildDistance = 130,
 terraformSpeed = 9001,
 buildoptions = 
 	{
@@ -53,23 +53,23 @@ buildoptions =
 	},
 
     -- Movement (Physics)
-    speed = 200,
-    Acceleration = 0.3,
+    speed = 54,
+    Acceleration = 0.1,
     BrakeRate = 0.2,
     turnRate = 650,
     turnInPlace = true,
     turnInPlaceAngleLimit = 90,
-    movementClass = "2x2",
-    footprintX = 2,
-    footprintZ = 2,
-    maxSlope = 22,
-    maxWaterDepth = 5,
+    movementClass = "3x3",
+    footprintX = 3,
+    footprintZ = 3,
+    maxSlope = 16,
+    maxWaterDepth = 18,
     leaveTracks = true,
 
     -- Sensors & Stealth
-    losRadius = 650,
+    losRadius = 253,
     airLosRadius = 800,
-    radarRadius = 0,
+    radarRadius = 50,
     sonarRadius = 0, -- Set for Subs/Corvettes
 
     -- Hitbox
