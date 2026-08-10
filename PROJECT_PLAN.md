@@ -7,7 +7,7 @@
 - **Project stage:** Scale feasibility laboratory
 - **Current milestone:** M1 — Scale laboratory
 - **Current gate:** Gate A — Scale feasibility
-- **Next task:** Add spatial render chunks and basic LOD buckets to MultiMesh rendering
+- **Next task:** Avoid complete transform uploads when only part of the army moves
 - **Target engine:** Godot 4.7.1 stable
 - **Primary language:** GDScript initially; introduce C# or C++ only after profiling proves a need
 - **Primary platform:** PC, keyboard and mouse
@@ -240,7 +240,7 @@ We prove new content is inexpensive enough to build the intended game.
 - [x] Store positions, rotations, ownership, type, health, and flags in data-oriented containers.
 - [x] Implement a fixed-step simulation clock.
 - [x] Create a simple spatial grid.
-- [ ] Render units with MultiMesh groups and basic LOD buckets. *(MultiMesh grouping is complete; spatial chunks and LOD remain.)*
+- [x] Render units with MultiMesh groups and basic LOD buckets.
 - [ ] Add click and drag-box selection.
 - [x] Add batched command dispatch.
 - [ ] Add placeholder shared-path/flow-field movement.
@@ -436,10 +436,9 @@ No milestone is complete solely because its code exists. It must meet its stated
 
 ## Immediate next sequence
 
-1. Divide MultiMesh rendering into spatial chunks and basic LOD buckets.
-2. Avoid complete transform uploads when only part of the army moves.
-3. Measure frame time, memory, and draw calls at every standard scale.
-4. Add individual click selection and drag-box selection.
-5. Add shared destination paths and formation slot assignment.
-6. Add local separation using the spatial grid.
-7. Complete the remaining M0 licensing, contribution, and Windows export tasks.
+1. Avoid complete transform uploads when only part of the army moves.
+2. Measure frame time, memory, and draw calls at every standard scale.
+3. Add individual click selection and drag-box selection.
+4. Add shared destination paths and formation slot assignment.
+5. Add local separation using the spatial grid.
+6. Complete the remaining M0 licensing, contribution, and Windows export tasks.
