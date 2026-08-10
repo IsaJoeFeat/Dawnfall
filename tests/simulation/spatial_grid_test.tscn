@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://d2t1v7hddpqfx"]
+
+[ext_resource type="Script" uid="uid://ccvya5msdj0wo" path="res://tests/simulation/spatial_grid_test.gd" id="1_ch2oy"]
+
+[node name="SpatialGridTest" type="Node" unique_id=135519208]
+script = ExtResource("1_ch2oy")

@@ -5,6 +5,7 @@ extends RefCounted
 var entities := EntityStore.new()
 var clock := FixedStepClock.new()
 var movement_system := MovementSystem.new()
+var spatial_grid := SpatialGrid.new(8.0)
 
 
 func spawn_unit(
@@ -56,6 +57,23 @@ func issue_move(
 	return accepted_count
 
 
+func rebuild_spatial_grid() -> void:
+	spatial_grid.rebuild(entities)
+
+
+func query_entities_in_radius(
+	center: Vector3,
+	radius: float,
+	owner_filter: int = SpatialGrid.ANY_OWNER
+) -> PackedInt32Array:
+	return spatial_grid.query_radius(
+		center,
+		radius,
+		entities,
+		owner_filter
+	)
+
+
 func advance(frame_delta: float) -> int:
 	var steps_to_run: int = clock.consume_steps(frame_delta)
 
@@ -67,3 +85,4 @@ func advance(frame_delta: float) -> int:
 
 func _simulate_tick(delta_seconds: float) -> void:
 	movement_system.step(entities, delta_seconds)
+	spatial_grid.rebuild(entities)

@@ -84,3 +84,17 @@ The current movement system:
 - Does not render entities
 
 It exists to validate the simulation architecture before more expensive systems are added.
+
+## Spatial indexing
+
+`SpatialGrid` divides the horizontal battlefield into fixed-size cells.
+
+Each occupied cell stores the indices of entities currently inside it. Radius queries inspect only cells overlapping the requested area and then perform an exact distance check on their candidates.
+
+This prevents nearby-unit queries from scanning every entity in the match.
+
+The initial implementation rebuilds the complete grid after every simulation tick. This favors correctness and simple lifecycle behavior while the architecture is young.
+
+The 8,000-entity baseline measured a complete grid rebuild at approximately 4.87 milliseconds. Incremental updates should only replace full rebuilding if later profiler evidence demonstrates a need.
+
+Spatial queries currently return internal entity indices for immediate simulation use. Player commands and persistent references continue to use generation-safe entity IDs.

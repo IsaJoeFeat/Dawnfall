@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b0ra7weh7ioj"]
+
+[ext_resource type="Script" uid="uid://c53817akmwnba" path="res://tests/benchmarks/simulation_scale_benchmark.gd" id="1_cmso6"]
+
+[node name="SimulationScaleBenchmark" type="Node" unique_id=1434607380]
+script = ExtResource("1_cmso6")
