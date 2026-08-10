@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="UnitDefinition" format=3]
+
+[ext_resource type="Resource" path="res://content/armor/testing/soft_target.tres" id="1_psbl1"]
+[ext_resource type="Resource" path="res://content/movement/testing/infantry_basic.tres" id="2_8xbii"]
+[ext_resource type="Script" path="res://src/shared/definitions/unit_definition.gd" id="3_8xbii"]
+[ext_resource type="Script" path="res://src/shared/definitions/weapon_definition.gd" id="4_hs03s"]
+[ext_resource type="Resource" path="res://content/weapons/testing/rifle.tres" id="5_hs03s"]
+
+[resource]
+script = ExtResource("3_8xbii")
+faction = 1
+collision_radius = 0.35
+selection_radius = 0.45
+vision_range = 350.0
+movement_profile = ExtResource("2_8xbii")
+armor_profile = ExtResource("1_psbl1")
+weapons = Array[ExtResource("4_hs03s")]([ExtResource("5_hs03s")])
+steel_cost = 20.0
+supply_cost = 5.0
+build_seconds = 10.0
+definition_id = &"unit_test_placeholder_infantry"
+display_name = "Placeholder Infantry"
+description = "Test unit for a basic mobile soft target."

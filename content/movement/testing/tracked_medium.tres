@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="MovementDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/shared/definitions/movement_definition.gd" id="1_fu5wl"]
+
+[resource]
+script = ExtResource("1_fu5wl")
+movement_class = 3
+max_speed = 8.0
+acceleration = 3.0
+deceleration = 5.0
+turn_speed_degrees = 60.0
+definition_id = &"movement_tracked_medium"
+display_name = "Medium Tracked Movement"
+description = "Shared placeholder movement for medium tracked vehicles."

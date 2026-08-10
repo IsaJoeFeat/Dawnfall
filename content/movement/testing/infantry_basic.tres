@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MovementDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/shared/definitions/movement_definition.gd" id="1_hjvjb"]
+
+[resource]
+script = ExtResource("1_hjvjb")
+max_speed = 4.5
+acceleration = 8.0
+deceleration = 10.0
+turn_speed_degrees = 360.0
+definition_id = &"movement_infantry_basic"
+display_name = "Basic Infantry Movement"
+description = "Shared placeholder movement for foot soldiers."

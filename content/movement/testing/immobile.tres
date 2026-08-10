@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="MovementDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/shared/definitions/movement_definition.gd" id="1_gvluh"]
+
+[resource]
+script = ExtResource("1_gvluh")
+movement_class = 0
+max_speed = 0.0
+acceleration = 0.0
+deceleration = 0.0
+turn_speed_degrees = 0.0
+definition_id = &"movement_immobile"
+display_name = "Immobile"
+description = "Shared movement profile for structures."
