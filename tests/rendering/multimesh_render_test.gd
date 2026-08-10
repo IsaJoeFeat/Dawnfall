@@ -5,8 +5,16 @@ const CONTENT_CATALOG: DefinitionCatalog = preload(
 	"res://content/content_catalog.tres"
 )
 
-const ENTITY_COUNT: int = 8000
-const COMMANDED_ENTITY_COUNT: int = 2000
+const STANDARD_ENTITY_COUNTS: Array[int] = [
+	1000,
+	2000,
+	4000,
+	8000,
+]
+const GRID_COLUMN_COUNT: int = 100
+const UNIT_SPACING: float = 2.0
+const INITIAL_CAMERA_DISTANCE: float = 180.0
+const MOVE_DESTINATION_OFFSET := Vector3(1.0, 0.0, 61.0)
 
 
 var _simulation_world := SimulationWorld.new()
@@ -14,6 +22,10 @@ var _renderer: UnitMultiMeshRenderer
 var _camera: RtsCameraController
 var _metrics_label: Label
 
+var _benchmark_started: bool = false
+var _entity_count: int = 0
+var _commanded_entity_count: int = 0
+var _battlefield_center := Vector3.ZERO
 var _metrics_elapsed: float = 0.0
 var _last_simulation_milliseconds: float = 0.0
 var _last_upload_milliseconds: float = 0.0
@@ -22,6 +34,84 @@ var _last_lod_changes: int = 0
 
 
 func _ready() -> void:
+	_show_scale_selector()
+
+
+func _show_scale_selector() -> void:
+	var canvas := CanvasLayer.new()
+
+	canvas.name = "ScaleSelector"
+	add_child(canvas)
+
+	var panel := PanelContainer.new()
+
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-190.0, -145.0)
+	panel.size = Vector2(380.0, 290.0)
+	canvas.add_child(panel)
+
+	var layout := VBoxContainer.new()
+
+	layout.add_theme_constant_override("separation", 10)
+	panel.add_child(layout)
+
+	var title := Label.new()
+
+	title.text = "Dawnfall Standard Scale Benchmark"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(title)
+
+	var instructions := Label.new()
+
+	instructions.text = (
+		"Choose one scale per run. The test commands 25% of units "
+		+ "and keeps density, camera distance, and render settings fixed."
+	)
+	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	instructions.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(instructions)
+
+	for entity_count: int in STANDARD_ENTITY_COUNTS:
+		var button := Button.new()
+
+		button.text = "%s units" % _format_entity_count(
+			entity_count
+		)
+		button.custom_minimum_size = Vector2(0.0, 36.0)
+		button.pressed.connect(
+			_start_benchmark.bind(entity_count, canvas)
+		)
+		layout.add_child(button)
+
+
+func _start_benchmark(
+	requested_entity_count: int,
+	selector: CanvasLayer
+) -> void:
+	if _benchmark_started:
+		return
+
+	if not STANDARD_ENTITY_COUNTS.has(requested_entity_count):
+		push_error("Unsupported standard benchmark entity count.")
+		return
+
+	selector.queue_free()
+
+	_entity_count = requested_entity_count
+	_commanded_entity_count = maxi(
+		1,
+		floori(float(_entity_count) * 0.25)
+	)
+
+	var row_count: int = ceili(
+		float(_entity_count) / float(GRID_COLUMN_COUNT)
+	)
+	_battlefield_center = Vector3(
+		float(GRID_COLUMN_COUNT - 1) * UNIT_SPACING * 0.5,
+		0.0,
+		float(row_count - 1) * UNIT_SPACING * 0.5
+	)
+
 	var registry := DefinitionRegistry.new()
 
 	if not CONTENT_CATALOG.load_into(registry):
@@ -48,7 +138,7 @@ func _ready() -> void:
 	var entity_ids := PackedInt64Array()
 	var spawn_start: int = Time.get_ticks_usec()
 
-	for index: int in range(ENTITY_COUNT):
+	for index: int in range(_entity_count):
 		var definition: UnitDefinition
 		var definition_index: int
 
@@ -59,16 +149,18 @@ func _ready() -> void:
 			definition = tank
 			definition_index = 1
 
-		var column: int = index % 100
-		var row: int = floori(float(index) / 100.0)
+		var column: int = index % GRID_COLUMN_COUNT
+		var row: int = floori(
+			float(index) / float(GRID_COLUMN_COUNT)
+		)
 		var entity_id: int = _simulation_world.spawn_unit(
 			definition,
 			definition_index,
 			index % 4,
 			Vector3(
-				float(column) * 2.0,
+				float(column) * UNIT_SPACING,
 				0.0,
-				float(row) * 2.0
+				float(row) * UNIT_SPACING
 			)
 		)
 
@@ -146,8 +238,8 @@ func _ready() -> void:
 	)
 
 	assert(
-		_renderer.rendered_instance_count() == ENTITY_COUNT,
-		"All 8,000 entities should have visual instances."
+		_renderer.rendered_instance_count() == _entity_count,
+		"Every logical entity should have a visual instance."
 	)
 	assert(
 		_renderer.draw_group_count() > 2,
@@ -156,26 +248,30 @@ func _ready() -> void:
 
 	var commanded_ids := PackedInt64Array()
 
-	for index: int in range(COMMANDED_ENTITY_COUNT):
+	for index: int in range(_commanded_entity_count):
 		commanded_ids.append(entity_ids[index])
 
 	assert(
 		_simulation_world.issue_move(
 			commanded_ids,
-			Vector3(100.0, 0.0, 140.0)
-		) == COMMANDED_ENTITY_COUNT,
-		"All 2,000 selected entities should accept movement."
+			_battlefield_center + MOVE_DESTINATION_OFFSET
+		) == _commanded_entity_count,
+		"Every selected benchmark entity should accept movement."
 	)
+
+	_benchmark_started = true
 
 	print(
 		(
-			"Chunked MultiMesh test ready: "
-			+ "%d logical entities, %d rendered instances, "
+			"Standard MultiMesh benchmark ready: "
+			+ "%d logical entities, %d commanded, "
+			+ "%d rendered instances, "
 			+ "%d chunk groups, %d near, %d far, "
 			+ "%.2f ms spawn, %.2f ms renderer build."
 		)
 		% [
 			_simulation_world.entities.alive_count(),
+			_commanded_entity_count,
 			_renderer.rendered_instance_count(),
 			_renderer.draw_group_count(),
 			_renderer.near_lod_group_count(),
@@ -187,6 +283,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if not _benchmark_started:
+		return
+
 	_last_lod_changes = _renderer.update_lod(
 		_camera.global_position
 	)
@@ -220,7 +319,7 @@ func _process(delta: float) -> void:
 			"Every changed transform should update one render instance."
 		)
 		assert(
-			_last_updated_instances <= COMMANDED_ENTITY_COUNT,
+			_last_updated_instances <= _commanded_entity_count,
 			"Static entities should not receive transform uploads."
 		)
 
@@ -297,7 +396,7 @@ func _create_ground() -> void:
 
 	plane.material = material
 	ground.mesh = plane
-	ground.position = Vector3(99.0, -0.05, 79.0)
+	ground.position = _battlefield_center + Vector3.DOWN * 0.05
 
 	add_child(ground)
 
@@ -309,8 +408,8 @@ func _create_camera() -> void:
 	add_child(_camera)
 
 	_camera.configure(
-		Vector3(99.0, 0.0, 79.0),
-		180.0
+		_battlefield_center,
+		INITIAL_CAMERA_DISTANCE
 	)
 
 
@@ -323,14 +422,14 @@ func _create_hud() -> void:
 	var panel := ColorRect.new()
 
 	panel.position = Vector2(12.0, 12.0)
-	panel.size = Vector2(560.0, 205.0)
+	panel.size = Vector2(610.0, 225.0)
 	panel.color = Color(0.02, 0.025, 0.035, 0.88)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(panel)
 
 	_metrics_label = Label.new()
 	_metrics_label.position = Vector2(14.0, 12.0)
-	_metrics_label.size = Vector2(530.0, 180.0)
+	_metrics_label.size = Vector2(580.0, 200.0)
 	_metrics_label.add_theme_color_override(
 		"font_color",
 		Color.WHITE
@@ -380,15 +479,18 @@ func _update_metrics() -> void:
 		far_groups = _renderer.far_lod_group_count()
 
 	_metrics_label.text = (
-		"Dawnfall Partial MultiMesh Upload Test\n"
-		+ "8,000 units | %d chunk groups | Near %d | Far %d\n"
+		"Dawnfall Standard Scale Benchmark\n"
+		+ "%s total | %s moving (25%%)\n"
+		+ "%d chunk groups | Near %d | Far %d\n"
 		+ "FPS: %.1f | Approx. frame: %.2f ms | Draw calls: %d\n"
 		+ "Last completed simulation tick: %.2f ms\n"
 		+ "Last transform upload: %.2f ms (%d instances)\n"
 		+ "LOD groups changed this frame: %d\n"
 		+ "Reported video memory: %.1f MB\n"
-		+ "Move and zoom camera to test chunk culling and LOD"
+		+ "Keep the initial camera view; sample after five seconds"
 	) % [
+		_format_entity_count(_entity_count),
+		_format_entity_count(_commanded_entity_count),
 		render_groups,
 		near_groups,
 		far_groups,
@@ -401,3 +503,17 @@ func _update_metrics() -> void:
 		_last_lod_changes,
 		video_memory_megabytes,
 	]
+
+
+func _format_entity_count(value: int) -> String:
+	match value:
+		1000:
+			return "1,000"
+		2000:
+			return "2,000"
+		4000:
+			return "4,000"
+		8000:
+			return "8,000"
+		_:
+			return str(value)
