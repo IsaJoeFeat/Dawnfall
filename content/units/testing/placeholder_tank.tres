@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="UnitDefinition" format=3 uid="uid://c4m4wpq8q0p7n"]
+
+[ext_resource type="Script" uid="uid://c1jos1cy6ksl1" path="res://src/shared/definitions/unit_definition.gd" id="1_3n6uc"]
+
+[resource]
+script = ExtResource("1_3n6uc")
+definition_id = &"test_placeholder_tank"
+display_name = "Placeholder Tank"
+collision_radius = 0.75
+metadata/_custom_type_script = "uid://c1jos1cy6ksl1"

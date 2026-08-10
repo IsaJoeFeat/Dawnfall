@@ -1,8 +1,7 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene format=3 uid="uid://buo58s6o5dyqc"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
 albedo_color = Color(0.184, 0.235, 0.169, 1)
-roughness = 1.0
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 material = SubResource("StandardMaterial3D_ground")
@@ -24,49 +23,47 @@ roughness = 0.9
 material = SubResource("StandardMaterial3D_unit")
 size = Vector3(1.2, 0.6, 2)
 
-[node name="EmptyBattle" type="Node3D"]
+[node name="EmptyBattle" type="Node3D" unique_id=729901145]
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-55, -25, 0)
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=208658774]
+transform = Transform3D(0.90630776, 0.34618863, -0.24240388, 0, 0.57357645, 0.81915206, 0.42261827, -0.74240386, 0.5198368, 0, 0, 0)
 light_energy = 1.1
 shadow_enabled = true
 
-[node name="Camera" type="Camera3D" parent="."]
-position = Vector3(0, 15, 18)
-rotation_degrees = Vector3(-35, 0, 0)
+[node name="Camera" type="Camera3D" parent="." unique_id=1838749201]
+transform = Transform3D(1, 0, 0, 0, 0.81915206, 0.57357645, 0, -0.57357645, 0.81915206, 0, 15, 18)
 current = true
 
-[node name="Ground" type="MeshInstance3D" parent="."]
+[node name="Ground" type="MeshInstance3D" parent="." unique_id=189163571]
 mesh = SubResource("PlaneMesh_ground")
 
-[node name="CommandHQ" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.75, -2)
+[node name="CommandHQ" type="MeshInstance3D" parent="." unique_id=293969812]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, -2)
 mesh = SubResource("BoxMesh_hq")
 
-[node name="PlaceholderUnitA" type="MeshInstance3D" parent="."]
-position = Vector3(-4, 0.3, 3)
-rotation_degrees = Vector3(0, -15, 0)
+[node name="PlaceholderUnitA" type="MeshInstance3D" parent="." unique_id=1514312102]
+transform = Transform3D(0.9659258, 0, -0.25881904, 0, 1, 0, 0.25881904, 0, 0.9659258, -4, 0.3, 3)
 mesh = SubResource("BoxMesh_unit")
 
-[node name="PlaceholderUnitB" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.3, 4)
+[node name="PlaceholderUnitB" type="MeshInstance3D" parent="." unique_id=449822844]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 4)
 mesh = SubResource("BoxMesh_unit")
 
-[node name="PlaceholderUnitC" type="MeshInstance3D" parent="."]
-position = Vector3(4, 0.3, 3)
-rotation_degrees = Vector3(0, 15, 0)
+[node name="PlaceholderUnitC" type="MeshInstance3D" parent="." unique_id=1669492934]
+transform = Transform3D(0.9659258, 0, 0.25881904, 0, 1, 0, -0.25881904, 0, 0.9659258, 4, 0.3, 3)
 mesh = SubResource("BoxMesh_unit")
 
-[node name="Interface" type="CanvasLayer" parent="."]
+[node name="Interface" type="CanvasLayer" parent="." unique_id=1969446252]
 
-[node name="StatusPanel" type="ColorRect" parent="Interface"]
+[node name="StatusPanel" type="ColorRect" parent="Interface" unique_id=598935975]
 offset_left = 24.0
 offset_top = 24.0
 offset_right = 430.0
 offset_bottom = 124.0
 color = Color(0.025, 0.035, 0.045, 0.92)
 
-[node name="Title" type="Label" parent="Interface/StatusPanel"]
+[node name="Title" type="Label" parent="Interface/StatusPanel" unique_id=816686955]
+layout_mode = 0
 offset_left = 20.0
 offset_top = 14.0
 offset_right = 386.0
@@ -74,7 +71,8 @@ offset_bottom = 46.0
 theme_override_font_sizes/font_size = 24
 text = "DAWNFALL — FOUNDATION"
 
-[node name="Status" type="Label" parent="Interface/StatusPanel"]
+[node name="Status" type="Label" parent="Interface/StatusPanel" unique_id=1705548721]
+layout_mode = 0
 offset_left = 20.0
 offset_top = 55.0
 offset_right = 386.0
