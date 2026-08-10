@@ -203,11 +203,27 @@ func _process(delta: float) -> void:
 			measured_simulation_milliseconds
 		)
 
+		var changed_transform_indices: PackedInt32Array = (
+			_simulation_world.consume_changed_transform_indices()
+		)
 		var upload_start: int = Time.get_ticks_usec()
 
 		_last_updated_instances = (
-			_renderer.sync_from_simulation()
+			_renderer.sync_changed_from_simulation(
+				changed_transform_indices
+			)
 		)
+
+		assert(
+			_last_updated_instances
+			== changed_transform_indices.size(),
+			"Every changed transform should update one render instance."
+		)
+		assert(
+			_last_updated_instances <= COMMANDED_ENTITY_COUNT,
+			"Static entities should not receive transform uploads."
+		)
+
 		_last_upload_milliseconds = (
 			float(Time.get_ticks_usec() - upload_start)
 			/ 1000.0
@@ -364,7 +380,7 @@ func _update_metrics() -> void:
 		far_groups = _renderer.far_lod_group_count()
 
 	_metrics_label.text = (
-		"Dawnfall Chunked MultiMesh Test\n"
+		"Dawnfall Partial MultiMesh Upload Test\n"
 		+ "8,000 units | %d chunk groups | Near %d | Far %d\n"
 		+ "FPS: %.1f | Approx. frame: %.2f ms | Draw calls: %d\n"
 		+ "Last completed simulation tick: %.2f ms\n"

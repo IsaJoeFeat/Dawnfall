@@ -8,6 +8,10 @@ var movement_system := MovementSystem.new()
 var spatial_grid := SpatialGrid.new(8.0)
 
 
+var _changed_transform_indices := PackedInt32Array()
+var _changed_transform_lookup: Dictionary = {}
+
+
 func spawn_unit(
 	definition: UnitDefinition,
 	definition_index: int,
@@ -83,6 +87,28 @@ func advance(frame_delta: float) -> int:
 	return steps_to_run
 
 
+func consume_changed_transform_indices() -> PackedInt32Array:
+	var changed_indices: PackedInt32Array = (
+		_changed_transform_indices
+	)
+
+	_changed_transform_indices = PackedInt32Array()
+	_changed_transform_lookup.clear()
+
+	return changed_indices
+
+
 func _simulate_tick(delta_seconds: float) -> void:
-	movement_system.step(entities, delta_seconds)
+	var changed_indices: PackedInt32Array = movement_system.step(
+		entities,
+		delta_seconds
+	)
+
+	for entity_index: int in changed_indices:
+		if _changed_transform_lookup.has(entity_index):
+			continue
+
+		_changed_transform_lookup[entity_index] = true
+		_changed_transform_indices.append(entity_index)
+
 	spatial_grid.rebuild(entities)

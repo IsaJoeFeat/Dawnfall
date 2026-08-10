@@ -50,6 +50,8 @@ var _simulation_world: SimulationWorld
 var _prototypes: Dictionary = {}
 var _groups: Dictionary = {}
 var _rendered_instance_count: int = 0
+var _entity_groups: Array[RenderGroup] = []
+var _entity_instance_indices := PackedInt32Array()
 
 
 func register_prototype(
@@ -110,6 +112,11 @@ func build(simulation_world: SimulationWorld) -> bool:
 
 	_simulation_world = simulation_world
 	_clear_render_groups()
+	_entity_groups.resize(_simulation_world.entities.capacity())
+	_entity_instance_indices.resize(
+		_simulation_world.entities.capacity()
+	)
+	_entity_instance_indices.fill(-1)
 
 	for entity_index: int in range(
 		_simulation_world.entities.capacity()
@@ -175,12 +182,12 @@ func build(simulation_world: SimulationWorld) -> bool:
 
 		_create_render_group(group)
 
-	sync_from_simulation()
+	_sync_all_from_simulation()
 
 	return true
 
 
-func sync_from_simulation() -> int:
+func _sync_all_from_simulation() -> int:
 	if _simulation_world == null:
 		return 0
 
@@ -199,32 +206,44 @@ func sync_from_simulation() -> int:
 				instance_index
 			]
 
-			if not _simulation_world.entities.is_index_alive(
+			if _sync_entity_transform(
+				group,
+				instance_index,
 				entity_index
 			):
-				continue
+				updated_instances += 1
 
-			var entity_position: Vector3 = (
-				_simulation_world.entities.positions[
-					entity_index
-				]
-			)
-			var heading: float = (
-				_simulation_world.entities.headings[
-					entity_index
-				]
-			)
-			var basis := Basis(Vector3.UP, heading)
-			var render_position := (
-				entity_position
-				+ Vector3.UP * group.prototype.vertical_offset
-			)
+	return updated_instances
 
-			group.multimesh.set_instance_transform(
-				instance_index,
-				Transform3D(basis, render_position)
-			)
 
+func sync_changed_from_simulation(
+	changed_entity_indices: PackedInt32Array
+) -> int:
+	if _simulation_world == null:
+		return 0
+
+	var updated_instances: int = 0
+
+	for entity_index: int in changed_entity_indices:
+		if (
+			entity_index < 0
+			or entity_index >= _entity_groups.size()
+		):
+			continue
+
+		var group: RenderGroup = _entity_groups[entity_index]
+		var instance_index: int = (
+			_entity_instance_indices[entity_index]
+		)
+
+		if group == null or instance_index < 0:
+			continue
+
+		if _sync_entity_transform(
+			group,
+			instance_index,
+			entity_index
+		):
 			updated_instances += 1
 
 	return updated_instances
@@ -361,6 +380,39 @@ func _create_render_group(group: RenderGroup) -> void:
 			_get_owner_color(owner_id)
 		)
 
+		_entity_groups[entity_index] = group
+		_entity_instance_indices[entity_index] = instance_index
+
+
+func _sync_entity_transform(
+	group: RenderGroup,
+	instance_index: int,
+	entity_index: int
+) -> bool:
+	if not _simulation_world.entities.is_index_alive(
+		entity_index
+	):
+		return false
+
+	var entity_position: Vector3 = (
+		_simulation_world.entities.positions[entity_index]
+	)
+	var heading: float = (
+		_simulation_world.entities.headings[entity_index]
+	)
+	var basis := Basis(Vector3.UP, heading)
+	var render_position := (
+		entity_position
+		+ Vector3.UP * group.prototype.vertical_offset
+	)
+
+	group.multimesh.set_instance_transform(
+		instance_index,
+		Transform3D(basis, render_position)
+	)
+
+	return true
+
 
 func _world_to_chunk(world_position: Vector3) -> Vector2i:
 	return Vector2i(
@@ -389,3 +441,5 @@ func _clear_render_groups() -> void:
 
 	_groups.clear()
 	_rendered_instance_count = 0
+	_entity_groups.clear()
+	_entity_instance_indices.clear()

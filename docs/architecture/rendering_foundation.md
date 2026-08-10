@@ -20,8 +20,10 @@ Ordinary units do not receive:
 
 A render prototype currently maps a numeric unit-definition index to:
 
-- A mesh
+- A near mesh
+- A far mesh
 - A vertical offset
+- An LOD distance
 
 This test-only prototype mapping will eventually be supplied by validated visual-definition data.
 
@@ -29,12 +31,8 @@ Adding a unit should not require editing the renderer.
 
 ## Render groups
 
-The initial test contains two groups:
-
-- Placeholder infantry
-- Placeholder tanks
-
-Each group owns one `MultiMeshInstance3D` and one `MultiMesh`.
+Entities are divided by unit definition and 32-meter spatial chunk. Each
+definition-and-chunk pair owns one `MultiMeshInstance3D` and one `MultiMesh`.
 
 Instance colors communicate the owning player without creating separate materials or render groups for each owner.
 
@@ -42,25 +40,28 @@ Instance colors communicate the owning player without creating separate material
 
 The simulation advances at 20 ticks per second.
 
-After a completed simulation tick, the renderer copies simulation positions and headings into MultiMesh instance transforms.
+`MovementSystem` reports entity indices whose positions or headings changed.
+`SimulationWorld` deduplicates those indices across every simulation tick
+completed during one rendered frame. Rendering consumes the changed set and
+updates only the corresponding MultiMesh instances.
 
-The initial implementation uploads all 8,000 transforms. This establishes a simple correctness baseline.
-
-Future synchronization should track changed transforms and upload only units whose visual state changed.
+The renderer maintains a direct lookup from each entity index to its render
+group and instance index. Static entities therefore require no transform
+upload after the initial renderer build.
 
 ## Culling and LOD
 
 A MultiMesh group is treated as one render object for visibility. Individual instances are not independently frustum-culled.
 
-Future rendering work should divide units into spatial chunks and basic LOD buckets. This will allow distant or off-screen regions to use cheaper rendering without creating one node per unit.
+Spatial chunks give Godot smaller visibility bounds, and each chunk switches
+between its prototype's near and far mesh according to camera distance.
 
 ## Current limitations
 
 - Render prototypes are created by test code.
-- All transforms are uploaded after each simulation tick.
 - No interpolation exists between simulation states.
-- No spatial render chunks exist.
-- No LOD buckets exist.
+- Moving entities remain assigned to their original render chunks even after
+  crossing a chunk boundary.
 - Death and dynamic spawning do not rebuild render groups.
 - Selection visuals are not implemented.
 - Production models and animation are not implemented.

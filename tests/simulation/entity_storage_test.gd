@@ -147,6 +147,35 @@ func _ready() -> void:
 		"The fixed clock should report twenty completed ticks."
 	)
 
+	var changed_transform_indices: PackedInt32Array = (
+		world.consume_changed_transform_indices()
+	)
+
+	assert(
+		changed_transform_indices.size()
+		== COMMANDED_ENTITY_COUNT,
+		"Only the 2,000 commanded entities should report changes."
+	)
+	assert(
+		changed_transform_indices.has(
+			EntityId.get_index(first_commanded_id)
+		),
+		"The moved entity should appear in the changed set."
+	)
+
+	for commanded_id: int in commanded_ids:
+		assert(
+			changed_transform_indices.has(
+				EntityId.get_index(commanded_id)
+			),
+			"Every moved entity should appear in the changed set."
+		)
+
+	assert(
+		world.consume_changed_transform_indices().is_empty(),
+		"Consuming transform changes should clear the dirty set."
+	)
+
 	var final_position: Vector3 = world.entities.get_position(
 		first_commanded_id
 	)
