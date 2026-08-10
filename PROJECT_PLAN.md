@@ -7,7 +7,7 @@
 - **Project stage:** Scale feasibility laboratory
 - **Current milestone:** M1 — Scale laboratory
 - **Current gate:** Gate A — Scale feasibility
-- **Next task:** Measure frame time, memory, and draw calls at every standard scale
+- **Next task:** Add individual click selection and drag-box selection
 - **Target engine:** Godot 4.7.1 stable
 - **Primary language:** GDScript initially; introduce C# or C++ only after profiling proves a need
 - **Primary platform:** PC, keyboard and mouse
@@ -245,7 +245,7 @@ We prove new content is inexpensive enough to build the intended game.
 - [x] Add batched command dispatch.
 - [ ] Add placeholder shared-path/flow-field movement.
 - [x] Build automated stress scenarios for 1,000, 2,000, 4,000, and 8,000 units.
-- [ ] Record CPU, frame time, memory, and draw-call results. *(The 8,000-unit entity, spatial-grid, MultiMesh, and partial-upload baselines are recorded; the matched 1,000/2,000/4,000/8,000 matrix remains.)*
+- [x] Record CPU, frame time, memory, and draw-call results. *(The matched 1,000/2,000/4,000/8,000 matrix and prior 8,000-unit baselines are recorded.)*
 
 **Done when:** Gate A passes or a written decision changes the target based on measured evidence.
 
@@ -431,14 +431,16 @@ No milestone is complete solely because its code exists. It must meet its stated
 - Prefer understandable code over clever abstractions.
 - Do not silently expand scope.
 - Do not claim something works until it has been run and tested in Godot.
+- The user applies all code and project changes and performs all Godot editor and in-engine testing; the assistant publishes only project-plan and documentation updates unless explicitly asked otherwise.
 - Update **Current status** and milestone checkboxes after every meaningful change.
 - Keep one explicit **Next task** at all times.
 
 ## Immediate next sequence
 
-1. Measure frame time, memory, and draw calls at every standard scale.
-2. Add individual click selection and drag-box selection.
+1. Add individual click selection and drag-box selection.
+2. Measure selection responsiveness at standard army sizes.
 3. Add shared destination paths and formation slot assignment.
 4. Add local separation using the spatial grid.
 5. Reassign moving render instances when they cross spatial render chunks.
-6. Complete the remaining M0 licensing, contribution, and Windows export tasks.
+6. Measure combined-system performance at every standard scale.
+7. Complete the remaining M0 licensing, contribution, and Windows export tasks.
