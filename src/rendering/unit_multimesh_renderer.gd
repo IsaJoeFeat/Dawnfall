@@ -1,6 +1,7 @@
 class_name UnitMultiMeshRenderer
 extends Node3D
 
+const SELECTED_COLOR := Color(1.0, 0.95, 0.2)
 
 class RenderPrototype:
 	var near_mesh: Mesh
@@ -52,6 +53,7 @@ var _groups: Dictionary = {}
 var _rendered_instance_count: int = 0
 var _entity_groups: Array[RenderGroup] = []
 var _entity_instance_indices := PackedInt32Array()
+var _selected_entity_lookup: Dictionary = {}
 
 
 func register_prototype(
@@ -248,6 +250,27 @@ func sync_changed_from_simulation(
 
 	return updated_instances
 
+func set_selected_entity_indices(
+	selected_entity_indices: PackedInt32Array
+) -> int:
+	for entity_index_value: Variant in (
+		_selected_entity_lookup.keys()
+	):
+		_set_entity_selection_color(
+			int(entity_index_value),
+			false
+		)
+
+	_selected_entity_lookup.clear()
+
+	var highlighted_count: int = 0
+
+	for entity_index: int in selected_entity_indices:
+		if _set_entity_selection_color(entity_index, true):
+			_selected_entity_lookup[entity_index] = true
+			highlighted_count += 1
+
+	return highlighted_count
 
 func update_lod(camera_position: Vector3) -> int:
 	var changed_groups: int = 0
@@ -413,6 +436,48 @@ func _sync_entity_transform(
 
 	return true
 
+func _set_entity_selection_color(
+	entity_index: int,
+	selected: bool
+) -> bool:
+	if (
+		_simulation_world == null
+		or entity_index < 0
+		or entity_index >= _entity_groups.size()
+		or not _simulation_world.entities.is_index_alive(
+			entity_index
+		)
+	):
+		return false
+
+	var group: RenderGroup = _entity_groups[entity_index]
+	var instance_index: int = (
+		_entity_instance_indices[entity_index]
+	)
+
+	if (
+		group == null
+		or group.multimesh == null
+		or instance_index < 0
+	):
+		return false
+
+	var color: Color = SELECTED_COLOR
+
+	if not selected:
+		var owner_id: int = (
+			_simulation_world.entities.owner_ids[
+				entity_index
+			]
+		)
+		color = _get_owner_color(owner_id)
+
+	group.multimesh.set_instance_color(
+		instance_index,
+		color
+	)
+
+	return true
 
 func _world_to_chunk(world_position: Vector3) -> Vector2i:
 	return Vector2i(
@@ -443,3 +508,4 @@ func _clear_render_groups() -> void:
 	_rendered_instance_count = 0
 	_entity_groups.clear()
 	_entity_instance_indices.clear()
+	_selected_entity_lookup.clear()

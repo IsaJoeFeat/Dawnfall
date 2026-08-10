@@ -77,6 +77,17 @@ func query_entities_in_radius(
 		owner_filter
 	)
 
+func query_entities_in_aabb(
+	minimum: Vector3,
+	maximum: Vector3,
+	owner_filter: int = SpatialGrid.ANY_OWNER
+) -> PackedInt32Array:
+	return spatial_grid.query_aabb(
+		minimum,
+		maximum,
+		entities,
+		owner_filter
+	)
 
 func advance(frame_delta: float) -> int:
 	var steps_to_run: int = clock.consume_steps(frame_delta)

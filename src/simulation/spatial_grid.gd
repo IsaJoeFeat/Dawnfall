@@ -114,6 +114,64 @@ func query_radius(
 
 	return results
 
+func query_aabb(
+	minimum: Vector3,
+	maximum: Vector3,
+	entities: EntityStore,
+	owner_filter: int = ANY_OWNER
+) -> PackedInt32Array:
+	var results := PackedInt32Array()
+	var minimum_x: float = minf(minimum.x, maximum.x)
+	var maximum_x: float = maxf(minimum.x, maximum.x)
+	var minimum_z: float = minf(minimum.z, maximum.z)
+	var maximum_z: float = maxf(minimum.z, maximum.z)
+
+	var minimum_cell: Vector2i = world_to_cell(
+		Vector3(minimum_x, 0.0, minimum_z)
+	)
+	var maximum_cell: Vector2i = world_to_cell(
+		Vector3(maximum_x, 0.0, maximum_z)
+	)
+
+	for cell_x: int in range(
+		minimum_cell.x,
+		maximum_cell.x + 1
+	):
+		for cell_z: int in range(
+			minimum_cell.y,
+			maximum_cell.y + 1
+		):
+			var cell := Vector2i(cell_x, cell_z)
+
+			if not _cells.has(cell):
+				continue
+
+			var bucket: PackedInt32Array = _cells[cell]
+
+			for entity_index: int in bucket:
+				if not entities.is_index_alive(entity_index):
+					continue
+
+				if (
+					owner_filter != ANY_OWNER
+					and entities.owner_ids[entity_index]
+					!= owner_filter
+				):
+					continue
+
+				var position: Vector3 = (
+					entities.positions[entity_index]
+				)
+
+				if (
+					position.x >= minimum_x
+					and position.x <= maximum_x
+					and position.z >= minimum_z
+					and position.z <= maximum_z
+				):
+					results.append(entity_index)
+
+	return results
 
 func world_to_cell(world_position: Vector3) -> Vector2i:
 	return Vector2i(

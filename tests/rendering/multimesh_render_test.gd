@@ -20,6 +20,7 @@ const MOVE_DESTINATION_OFFSET := Vector3(1.0, 0.0, 61.0)
 var _simulation_world := SimulationWorld.new()
 var _renderer: UnitMultiMeshRenderer
 var _camera: RtsCameraController
+var _selection_controller: UnitSelectionController
 var _metrics_label: Label
 
 var _benchmark_started: bool = false
@@ -31,6 +32,8 @@ var _last_simulation_milliseconds: float = 0.0
 var _last_upload_milliseconds: float = 0.0
 var _last_updated_instances: int = 0
 var _last_lod_changes: int = 0
+var _selected_entity_count: int = 0
+var _last_selection_milliseconds: float = 0.0
 
 
 func _ready() -> void:
@@ -231,6 +234,7 @@ func _start_benchmark(
 	)
 
 	_renderer.update_lod(_camera.global_position)
+	_create_selection_controller()
 
 	var build_milliseconds: float = (
 		float(Time.get_ticks_usec() - build_start)
@@ -412,6 +416,40 @@ func _create_camera() -> void:
 		INITIAL_CAMERA_DISTANCE
 	)
 
+func _create_selection_controller() -> void:
+	_selection_controller = UnitSelectionController.new()
+	_selection_controller.name = "UnitSelectionController"
+	add_child(_selection_controller)
+
+	assert(
+		_selection_controller.configure(
+			_simulation_world,
+			_camera,
+			0
+		),
+		"Selection controller should configure successfully."
+	)
+
+	_selection_controller.selection_changed.connect(
+		_on_selection_changed
+	)
+
+
+func _on_selection_changed(
+	entity_indices: PackedInt32Array,
+	elapsed_milliseconds: float
+) -> void:
+	_selected_entity_count = entity_indices.size()
+	_last_selection_milliseconds = elapsed_milliseconds
+
+	assert(
+		_renderer.set_selected_entity_indices(
+			entity_indices
+		) == _selected_entity_count,
+		"Every selected entity should be highlighted."
+	)
+
+	_update_metrics()
 
 func _create_hud() -> void:
 	var canvas := CanvasLayer.new()
@@ -422,14 +460,14 @@ func _create_hud() -> void:
 	var panel := ColorRect.new()
 
 	panel.position = Vector2(12.0, 12.0)
-	panel.size = Vector2(610.0, 225.0)
+	panel.size = Vector2(640.0, 255.0)
 	panel.color = Color(0.02, 0.025, 0.035, 0.88)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(panel)
 
 	_metrics_label = Label.new()
 	_metrics_label.position = Vector2(14.0, 12.0)
-	_metrics_label.size = Vector2(580.0, 200.0)
+	_metrics_label.size = Vector2(610.0, 230.0)
 	_metrics_label.add_theme_color_override(
 		"font_color",
 		Color.WHITE
@@ -478,16 +516,17 @@ func _update_metrics() -> void:
 		near_groups = _renderer.near_lod_group_count()
 		far_groups = _renderer.far_lod_group_count()
 
-	_metrics_label.text = (
+		_metrics_label.text = (
 		"Dawnfall Standard Scale Benchmark\n"
 		+ "%s total | %s moving (25%%)\n"
 		+ "%d chunk groups | Near %d | Far %d\n"
 		+ "FPS: %.1f | Approx. frame: %.2f ms | Draw calls: %d\n"
 		+ "Last completed simulation tick: %.2f ms\n"
 		+ "Last transform upload: %.2f ms (%d instances)\n"
+		+ "Selection: %d units | Last query: %.3f ms\n"
 		+ "LOD groups changed this frame: %d\n"
 		+ "Reported video memory: %.1f MB\n"
-		+ "Keep the initial camera view; sample after five seconds"
+		+ "Left-click or drag-select blue player units"
 	) % [
 		_format_entity_count(_entity_count),
 		_format_entity_count(_commanded_entity_count),
@@ -500,6 +539,8 @@ func _update_metrics() -> void:
 		_last_simulation_milliseconds,
 		_last_upload_milliseconds,
 		_last_updated_instances,
+		_selected_entity_count,
+		_last_selection_milliseconds,
 		_last_lod_changes,
 		video_memory_megabytes,
 	]
