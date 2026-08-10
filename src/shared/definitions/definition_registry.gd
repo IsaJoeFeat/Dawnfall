@@ -109,16 +109,19 @@ func summary() -> String:
 
 func _require_registered_reference(
 	owner: UnitDefinition,
-	reference: GameDefinition,
+	referenced_definition: GameDefinition,
 	reference_label: String
 ) -> bool:
-	if reference == null:
+	if referenced_definition == null:
 		return false
 
-	var registered: GameDefinition = get_definition(reference.definition_id)
+	var registered: GameDefinition = get_definition(
+		referenced_definition.definition_id
+	)
+
 	return DawnfallLog.require_valid(
-		registered == reference,
+		registered == referenced_definition,
 		"Referenced %s '%s' is missing from the content catalog."
-		% [reference_label, reference.definition_id],
+		% [reference_label, referenced_definition.definition_id],
 		owner.get_validation_context()
 	)

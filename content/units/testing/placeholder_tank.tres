@@ -1,9 +1,9 @@
-[gd_resource type="Resource" script_class="UnitDefinition" format=3]
+[gd_resource type="Resource" script_class="UnitDefinition" format=3 uid="uid://dor5ttql0ecl5"]
 
 [ext_resource type="Resource" path="res://content/armor/testing/medium_vehicle.tres" id="1_odlw8"]
 [ext_resource type="Resource" path="res://content/movement/testing/tracked_medium.tres" id="2_p8yjg"]
-[ext_resource type="Script" path="res://src/shared/definitions/unit_definition.gd" id="3_odlw8"]
-[ext_resource type="Script" path="res://src/shared/definitions/weapon_definition.gd" id="4_p8yjg"]
+[ext_resource type="Script" uid="uid://c1jos1cy6ksl1" path="res://src/shared/definitions/unit_definition.gd" id="3_odlw8"]
+[ext_resource type="Script" uid="uid://bhdi1wcl03277" path="res://src/shared/definitions/weapon_definition.gd" id="4_p8yjg"]
 [ext_resource type="Resource" path="res://content/weapons/testing/tank_cannon.tres" id="5_mnc8e"]
 [ext_resource type="Resource" path="res://content/weapons/testing/tank_machine_gun.tres" id="6_35p48"]
 
@@ -25,3 +25,4 @@ build_seconds = 35.0
 definition_id = &"unit_test_placeholder_tank"
 display_name = "Placeholder Tank"
 description = "Test vehicle with a cannon and reusable machine gun."
+metadata/_custom_type_script = "uid://c1jos1cy6ksl1"

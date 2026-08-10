@@ -4,10 +4,10 @@
 
 ## Current status
 
-- **Project stage:** Planning and foundation
-- **Current milestone:** M0 — Project foundation
+- **Project stage:** Scale feasibility laboratory
+- **Current milestone:** M1 — Scale laboratory
 - **Current gate:** Gate A — Scale feasibility
-- **Next task:** Choose the code/content licenses and add a Windows development export preset
+- **Next task:** Implement a simple spatial grid for efficient nearby-unit queries
 - **Target engine:** Godot 4.7.1 stable
 - **Primary language:** GDScript initially; introduce C# or C++ only after profiling proves a need
 - **Primary platform:** PC, keyboard and mouse
@@ -124,9 +124,9 @@ Dawnfall/
 ├── tests/
 ├── benchmarks/
 └── docs/
-    ├── architecture/
-    ├── decisions/
-    └── design/
+	├── architecture/
+	├── decisions/
+	└── design/
 ```
 
 The layout may change during M0. Any major structural change should receive a short Architecture Decision Record in `docs/decisions/`.
@@ -144,9 +144,9 @@ Unit source data
   + targeting rules
   + visual recipe
   + unit-specific overrides
-        ↓
+		↓
 Definition compiler and validator
-        ↓
+		↓
 Stable runtime definitions
   ├── simulation data
   ├── build menus
@@ -236,13 +236,13 @@ We prove new content is inexpensive enough to build the intended game.
 
 ### M1 — Scale laboratory
 
-- [ ] Create compact entity IDs and lifecycle management.
-- [ ] Store positions, rotations, ownership, type, health, and flags in data-oriented containers.
-- [ ] Implement a fixed-step simulation clock.
+- [x] Create compact entity IDs and lifecycle management.
+- [x] Store positions, rotations, ownership, type, health, and flags in data-oriented containers.
+- [x] Implement a fixed-step simulation clock.
 - [ ] Create a simple spatial grid.
 - [ ] Render units with MultiMesh groups and basic LOD buckets.
 - [ ] Add click and drag-box selection.
-- [ ] Add batched command dispatch.
+- [x] Add batched command dispatch.
 - [ ] Add placeholder shared-path/flow-field movement.
 - [ ] Build automated stress scenarios for 1,000, 2,000, 4,000, and 8,000 units.
 - [ ] Record CPU, frame time, memory, and draw-call results.
@@ -436,8 +436,9 @@ No milestone is complete solely because its code exists. It must meet its stated
 
 ## Immediate next sequence
 
-1. Choose the code and content licenses.
-2. Add contribution and asset-license rules.
-3. Add a Windows development export preset.
-4. Confirm a clean graphical launch and Windows export on the development PC.
-5. Begin M1 with entity storage and the fixed simulation clock.
+1. Implement a simple spatial grid and test nearby-unit queries.
+2. Parameterize stress scenarios for 1,000, 2,000, 4,000, and 8,000 entities.
+3. Render logical entities through MultiMesh groups.
+4. Add individual click selection and drag-box selection.
+5. Add shared destination paths and formation slot assignment.
+6. Complete the remaining M0 licensing, contribution, and Windows export tasks.

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://10eqy5xuxyuy"]
+
+[ext_resource type="Script" uid="uid://gwl5nhp6njaf" path="res://tests/simulation/entity_storage_test.gd" id="1_flu7o"]
+
+[node name="EntityStorageTest" type="Node" unique_id=1452885697]
+script = ExtResource("1_flu7o")
