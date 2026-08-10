@@ -1,0 +1,84 @@
+[gd_scene load_steps=7 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.184, 0.235, 0.169, 1)
+roughness = 1.0
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+material = SubResource("StandardMaterial3D_ground")
+size = Vector2(40, 40)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hq"]
+albedo_color = Color(0.24, 0.31, 0.38, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="BoxMesh_hq"]
+material = SubResource("StandardMaterial3D_hq")
+size = Vector3(4, 1.5, 3)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_unit"]
+albedo_color = Color(0.67, 0.57, 0.31, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_unit"]
+material = SubResource("StandardMaterial3D_unit")
+size = Vector3(1.2, 0.6, 2)
+
+[node name="EmptyBattle" type="Node3D"]
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-55, -25, 0)
+light_energy = 1.1
+shadow_enabled = true
+
+[node name="Camera" type="Camera3D" parent="."]
+position = Vector3(0, 15, 18)
+rotation_degrees = Vector3(-35, 0, 0)
+current = true
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_ground")
+
+[node name="CommandHQ" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.75, -2)
+mesh = SubResource("BoxMesh_hq")
+
+[node name="PlaceholderUnitA" type="MeshInstance3D" parent="."]
+position = Vector3(-4, 0.3, 3)
+rotation_degrees = Vector3(0, -15, 0)
+mesh = SubResource("BoxMesh_unit")
+
+[node name="PlaceholderUnitB" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.3, 4)
+mesh = SubResource("BoxMesh_unit")
+
+[node name="PlaceholderUnitC" type="MeshInstance3D" parent="."]
+position = Vector3(4, 0.3, 3)
+rotation_degrees = Vector3(0, 15, 0)
+mesh = SubResource("BoxMesh_unit")
+
+[node name="Interface" type="CanvasLayer" parent="."]
+
+[node name="StatusPanel" type="ColorRect" parent="Interface"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 430.0
+offset_bottom = 124.0
+color = Color(0.025, 0.035, 0.045, 0.92)
+
+[node name="Title" type="Label" parent="Interface/StatusPanel"]
+offset_left = 20.0
+offset_top = 14.0
+offset_right = 386.0
+offset_bottom = 46.0
+theme_override_font_sizes/font_size = 24
+text = "DAWNFALL — FOUNDATION"
+
+[node name="Status" type="Label" parent="Interface/StatusPanel"]
+offset_left = 20.0
+offset_top = 55.0
+offset_right = 386.0
+offset_bottom = 82.0
+theme_override_colors/font_color = Color(0.68, 0.79, 0.63, 1)
+theme_override_font_sizes/font_size = 16
+text = "Boot scene loaded • M0 in progress"
