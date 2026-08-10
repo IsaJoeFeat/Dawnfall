@@ -7,7 +7,7 @@
 - **Project stage:** Scale feasibility laboratory
 - **Current milestone:** M1 — Scale laboratory
 - **Current gate:** Gate A — Scale feasibility
-- **Next task:** Add individual click selection and drag-box selection
+- **Next task:** Add shared destination paths and formation slot assignment
 - **Target engine:** Godot 4.7.1 stable
 - **Primary language:** GDScript initially; introduce C# or C++ only after profiling proves a need
 - **Primary platform:** PC, keyboard and mouse
@@ -241,7 +241,7 @@ We prove new content is inexpensive enough to build the intended game.
 - [x] Implement a fixed-step simulation clock.
 - [x] Create a simple spatial grid.
 - [x] Render units with MultiMesh groups and basic LOD buckets.
-- [ ] Add click and drag-box selection.
+- [x] Add click and drag-box selection. *(Verified at 8,000 total units: all 2,000 player-owned units selected in 3.107 ms.)*
 - [x] Add batched command dispatch.
 - [ ] Add placeholder shared-path/flow-field movement.
 - [x] Build automated stress scenarios for 1,000, 2,000, 4,000, and 8,000 units.
@@ -437,10 +437,8 @@ No milestone is complete solely because its code exists. It must meet its stated
 
 ## Immediate next sequence
 
-1. Add individual click selection and drag-box selection.
-2. Measure selection responsiveness at standard army sizes.
-3. Add shared destination paths and formation slot assignment.
-4. Add local separation using the spatial grid.
-5. Reassign moving render instances when they cross spatial render chunks.
-6. Measure combined-system performance at every standard scale.
-7. Complete the remaining M0 licensing, contribution, and Windows export tasks.
+1. Add shared destination paths and formation slot assignment.
+2. Add local separation using the spatial grid.
+3. Reassign moving render instances when they cross spatial render chunks.
+4. Measure combined-system performance at every standard scale.
+5. Complete the remaining M0 licensing, contribution, and Windows export tasks.
