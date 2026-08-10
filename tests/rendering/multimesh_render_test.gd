@@ -11,12 +11,14 @@ const COMMANDED_ENTITY_COUNT: int = 2000
 
 var _simulation_world := SimulationWorld.new()
 var _renderer: UnitMultiMeshRenderer
+var _camera: RtsCameraController
 var _metrics_label: Label
 
 var _metrics_elapsed: float = 0.0
 var _last_simulation_milliseconds: float = 0.0
 var _last_upload_milliseconds: float = 0.0
 var _last_updated_instances: int = 0
+var _last_lod_changes: int = 0
 
 
 func _ready() -> void:
@@ -86,31 +88,45 @@ func _ready() -> void:
 
 	_renderer = UnitMultiMeshRenderer.new()
 	_renderer.name = "UnitMultiMeshRenderer"
+	_renderer.render_chunk_size = 32.0
 	add_child(_renderer)
 
-	var unit_material := _create_unit_material()
+	var near_material := _create_near_unit_material()
+	var far_material := _create_far_unit_material()
 
-	var infantry_mesh := BoxMesh.new()
-	infantry_mesh.size = Vector3(0.7, 1.4, 0.7)
-	infantry_mesh.material = unit_material
+	var infantry_near_mesh := BoxMesh.new()
+	infantry_near_mesh.size = Vector3(0.7, 1.4, 0.7)
+	infantry_near_mesh.material = near_material
 
-	var tank_mesh := BoxMesh.new()
-	tank_mesh.size = Vector3(1.8, 0.7, 2.8)
-	tank_mesh.material = unit_material
+	var infantry_far_mesh := PlaneMesh.new()
+	infantry_far_mesh.size = Vector2(0.35, 0.35)
+	infantry_far_mesh.material = far_material
+
+	var tank_near_mesh := BoxMesh.new()
+	tank_near_mesh.size = Vector3(1.4, 0.7, 1.6)
+	tank_near_mesh.material = near_material
+
+	var tank_far_mesh := PlaneMesh.new()
+	tank_far_mesh.size = Vector2(0.75, 1.0)
+	tank_far_mesh.material = far_material
 
 	assert(
 		_renderer.register_prototype(
 			0,
-			infantry_mesh,
-			0.7
+			infantry_near_mesh,
+			infantry_far_mesh,
+			0.7,
+			95.0
 		),
 		"Infantry render prototype should register."
 	)
 	assert(
 		_renderer.register_prototype(
 			1,
-			tank_mesh,
-			0.35
+			tank_near_mesh,
+			tank_far_mesh,
+			0.35,
+			110.0
 		),
 		"Tank render prototype should register."
 	)
@@ -119,8 +135,10 @@ func _ready() -> void:
 
 	assert(
 		_renderer.build(_simulation_world),
-		"MultiMesh renderer should build successfully."
+		"Chunked MultiMesh renderer should build successfully."
 	)
+
+	_renderer.update_lod(_camera.global_position)
 
 	var build_milliseconds: float = (
 		float(Time.get_ticks_usec() - build_start)
@@ -132,8 +150,8 @@ func _ready() -> void:
 		"All 8,000 entities should have visual instances."
 	)
 	assert(
-		_renderer.draw_group_count() == 2,
-		"Infantry and tanks should use two MultiMesh groups."
+		_renderer.draw_group_count() > 2,
+		"Spatial chunks should create multiple render groups."
 	)
 
 	var commanded_ids := PackedInt64Array()
@@ -151,15 +169,17 @@ func _ready() -> void:
 
 	print(
 		(
-			"MultiMesh render test ready: "
+			"Chunked MultiMesh test ready: "
 			+ "%d logical entities, %d rendered instances, "
-			+ "%d MultiMesh groups, %.2f ms spawn, "
-			+ "%.2f ms renderer build."
+			+ "%d chunk groups, %d near, %d far, "
+			+ "%.2f ms spawn, %.2f ms renderer build."
 		)
 		% [
 			_simulation_world.entities.alive_count(),
 			_renderer.rendered_instance_count(),
 			_renderer.draw_group_count(),
+			_renderer.near_lod_group_count(),
+			_renderer.far_lod_group_count(),
 			spawn_milliseconds,
 			build_milliseconds,
 		]
@@ -167,6 +187,10 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_last_lod_changes = _renderer.update_lod(
+		_camera.global_position
+	)
+
 	var simulation_start: int = Time.get_ticks_usec()
 	var completed_steps: int = _simulation_world.advance(delta)
 	var measured_simulation_milliseconds: float = (
@@ -196,13 +220,26 @@ func _process(delta: float) -> void:
 		_update_metrics()
 
 
-func _create_unit_material() -> StandardMaterial3D:
+func _create_near_unit_material() -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 
 	material.albedo_color = Color.WHITE
 	material.vertex_color_use_as_albedo = true
 	material.roughness = 0.85
 	material.metallic = 0.0
+
+	return material
+
+
+func _create_far_unit_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+
+	material.albedo_color = Color.WHITE
+	material.vertex_color_use_as_albedo = true
+	material.shading_mode = (
+		BaseMaterial3D.SHADING_MODE_UNSHADED
+	)
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 
 	return material
 
@@ -250,11 +287,12 @@ func _create_ground() -> void:
 
 
 func _create_camera() -> void:
-	var camera := RtsCameraController.new()
+	_camera = RtsCameraController.new()
+	_camera.name = "RtsCamera"
 
-	camera.name = "RtsCamera"
-	add_child(camera)
-	camera.configure(
+	add_child(_camera)
+
+	_camera.configure(
 		Vector3(99.0, 0.0, 79.0),
 		180.0
 	)
@@ -269,14 +307,14 @@ func _create_hud() -> void:
 	var panel := ColorRect.new()
 
 	panel.position = Vector2(12.0, 12.0)
-	panel.size = Vector2(500.0, 180.0)
+	panel.size = Vector2(560.0, 205.0)
 	panel.color = Color(0.02, 0.025, 0.035, 0.88)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(panel)
 
 	_metrics_label = Label.new()
 	_metrics_label.position = Vector2(14.0, 12.0)
-	_metrics_label.size = Vector2(470.0, 155.0)
+	_metrics_label.size = Vector2(530.0, 180.0)
 	_metrics_label.add_theme_color_override(
 		"font_color",
 		Color.WHITE
@@ -316,20 +354,34 @@ func _update_metrics() -> void:
 		/ (1024.0 * 1024.0)
 	)
 
+	var render_groups: int = 0
+	var near_groups: int = 0
+	var far_groups: int = 0
+
+	if _renderer != null:
+		render_groups = _renderer.draw_group_count()
+		near_groups = _renderer.near_lod_group_count()
+		far_groups = _renderer.far_lod_group_count()
+
 	_metrics_label.text = (
-		"Dawnfall MultiMesh Scale Test\n"
-		+ "8,000 logical and rendered units | 2 MultiMesh groups\n"
+		"Dawnfall Chunked MultiMesh Test\n"
+		+ "8,000 units | %d chunk groups | Near %d | Far %d\n"
 		+ "FPS: %.1f | Approx. frame: %.2f ms | Draw calls: %d\n"
 		+ "Last completed simulation tick: %.2f ms\n"
 		+ "Last transform upload: %.2f ms (%d instances)\n"
+		+ "LOD groups changed this frame: %d\n"
 		+ "Reported video memory: %.1f MB\n"
-		+ "WASD/arrows pan | Wheel zoom | Q/E rotate | F8 stop"
+		+ "Move and zoom camera to test chunk culling and LOD"
 	) % [
+		render_groups,
+		near_groups,
+		far_groups,
 		frames_per_second,
 		frame_milliseconds,
 		draw_calls,
 		_last_simulation_milliseconds,
 		_last_upload_milliseconds,
 		_last_updated_instances,
+		_last_lod_changes,
 		video_memory_megabytes,
 	]

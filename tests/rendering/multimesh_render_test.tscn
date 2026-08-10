@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://py5iqbhimi0t"]
 
-[ext_resource type="Script" uid="uid://gl4ov8km411g" path="res://tests/rendering/multimesh_render_test.gd" id="1_x1knd"]
+[ext_resource type="Script" uid="uid://gl4ov8km411g" path="res://tests/rendering/multimesh_render_test.gd" id="1_eoooj"]
 
 [node name="MultiMeshRenderTest" type="Node3D" unique_id=1516647263]
-script = ExtResource("1_x1knd")
+script = ExtResource("1_eoooj")
