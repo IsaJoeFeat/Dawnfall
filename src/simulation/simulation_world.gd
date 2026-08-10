@@ -6,6 +6,8 @@ var entities := EntityStore.new()
 var clock := FixedStepClock.new()
 var movement_system := MovementSystem.new()
 var spatial_grid := SpatialGrid.new(8.0)
+var shared_route_request_count: int = 0
+var last_shared_route := PackedVector3Array()
 
 
 var _changed_transform_indices := PackedInt32Array()
@@ -40,6 +42,7 @@ func spawn_unit(
 		owner_id,
 		position,
 		definition.max_health,
+		definition.collision_radius,
 		movement.max_speed,
 		movement.acceleration,
 		movement.deceleration,
@@ -60,6 +63,65 @@ func issue_move(
 
 	return accepted_count
 
+func issue_group_move(
+	entity_ids: PackedInt64Array,
+	destinations: PackedVector3Array
+) -> int:
+	if not DawnfallLog.require_valid(
+		entity_ids.size() == destinations.size(),
+		"Group movement requires one destination per entity.",
+		&"SimulationWorld"
+	):
+		return 0
+
+	if entity_ids.is_empty():
+		return 0
+
+	var valid_entity_ids := PackedInt64Array()
+	var valid_destinations := PackedVector3Array()
+	var route_start := Vector3.ZERO
+	var route_destination := Vector3.ZERO
+
+	for order_index: int in range(entity_ids.size()):
+		var entity_id: int = entity_ids[order_index]
+		var entity_index: int = entities.get_index_if_alive(
+			entity_id
+		)
+
+		if entity_index < 0:
+			continue
+
+		if entities.maximum_speeds[entity_index] <= 0.0:
+			continue
+
+		valid_entity_ids.append(entity_id)
+		valid_destinations.append(destinations[order_index])
+		route_start += entities.positions[entity_index]
+		route_destination += destinations[order_index]
+
+	if valid_entity_ids.is_empty():
+		return 0
+
+	var valid_count: float = float(valid_entity_ids.size())
+
+	route_start /= valid_count
+	route_destination /= valid_count
+
+	last_shared_route = PackedVector3Array()
+	last_shared_route.append(route_start)
+	last_shared_route.append(route_destination)
+	shared_route_request_count += 1
+
+	var accepted_count: int = 0
+
+	for order_index: int in range(valid_entity_ids.size()):
+		if entities.set_move_target(
+			valid_entity_ids[order_index],
+			valid_destinations[order_index]
+		):
+			accepted_count += 1
+
+	return accepted_count
 
 func rebuild_spatial_grid() -> void:
 	spatial_grid.rebuild(entities)
@@ -111,9 +173,10 @@ func consume_changed_transform_indices() -> PackedInt32Array:
 
 func _simulate_tick(delta_seconds: float) -> void:
 	var changed_indices: PackedInt32Array = movement_system.step(
-		entities,
-		delta_seconds
-	)
+	entities,
+	spatial_grid,
+	delta_seconds
+)
 
 	for entity_index: int in changed_indices:
 		if _changed_transform_lookup.has(entity_index):

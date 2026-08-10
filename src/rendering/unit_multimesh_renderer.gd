@@ -2,6 +2,7 @@ class_name UnitMultiMeshRenderer
 extends Node3D
 
 const SELECTED_COLOR := Color(1.0, 0.95, 0.2)
+const LOD_HYSTERESIS_DISTANCE: float = 8.0
 
 class RenderPrototype:
 	var near_mesh: Mesh
@@ -79,6 +80,11 @@ func register_prototype(
 
 	if far_mesh == null:
 		far_mesh = near_mesh
+
+	_prepare_mesh_for_instance_colors(near_mesh)
+
+	if far_mesh != near_mesh:
+		_prepare_mesh_for_instance_colors(far_mesh)
 
 	if not DawnfallLog.require_valid(
 		lod_distance > 0.0,
@@ -281,17 +287,30 @@ func update_lod(camera_position: Vector3) -> int:
 		if group.multimesh == null:
 			continue
 
-		var lod_distance_squared: float = (
-			group.prototype.lod_distance
-			* group.prototype.lod_distance
-		)
 		var distance_squared: float = (
-			camera_position.distance_squared_to(
-				group.chunk_center
+			_nearest_group_distance_squared(
+				group,
+				camera_position
 			)
 		)
+
+		if is_inf(distance_squared):
+			continue
+
+		var switching_distance: float = (
+			group.prototype.lod_distance
+		)
+
+		if group.is_far_lod:
+			switching_distance -= LOD_HYSTERESIS_DISTANCE
+		else:
+			switching_distance += LOD_HYSTERESIS_DISTANCE
+
+		switching_distance = maxf(switching_distance, 1.0)
+
 		var should_use_far_lod: bool = (
-			distance_squared > lod_distance_squared
+			distance_squared
+			> switching_distance * switching_distance
 		)
 
 		if should_use_far_lod == group.is_far_lod:
@@ -307,6 +326,35 @@ func update_lod(camera_position: Vector3) -> int:
 		changed_groups += 1
 
 	return changed_groups
+	
+func _nearest_group_distance_squared(
+	group: RenderGroup,
+	camera_position: Vector3
+) -> float:
+	var nearest_distance_squared: float = INF
+
+	for entity_index: int in group.entity_indices:
+		if not _simulation_world.entities.is_index_alive(
+			entity_index
+		):
+			continue
+
+		var entity_position: Vector3 = (
+			_simulation_world.entities.positions[entity_index]
+		)
+
+		var distance_squared: float = (
+			camera_position.distance_squared_to(
+				entity_position
+			)
+		)
+
+		nearest_distance_squared = minf(
+			nearest_distance_squared,
+			distance_squared
+		)
+
+	return nearest_distance_squared
 
 
 func draw_group_count() -> int:
@@ -423,7 +471,7 @@ func _sync_entity_transform(
 	var heading: float = (
 		_simulation_world.entities.headings[entity_index]
 	)
-	var basis := Basis(Vector3.UP, heading)
+	var instance_basis := Basis(Vector3.UP, heading)
 	var render_position := (
 		entity_position
 		+ Vector3.UP * group.prototype.vertical_offset
@@ -431,7 +479,7 @@ func _sync_entity_transform(
 
 	group.multimesh.set_instance_transform(
 		instance_index,
-		Transform3D(basis, render_position)
+		Transform3D(instance_basis, render_position)
 	)
 
 	return true
@@ -478,6 +526,59 @@ func _set_entity_selection_color(
 	)
 
 	return true
+
+
+func _prepare_mesh_for_instance_colors(mesh: Mesh) -> void:
+	if mesh is PrimitiveMesh:
+		var primitive_mesh := mesh as PrimitiveMesh
+		var primitive_material: Material = primitive_mesh.material
+
+		if primitive_material == null:
+			primitive_material = StandardMaterial3D.new()
+			primitive_mesh.material = primitive_material
+
+		_prepare_material_for_instance_colors(
+			primitive_material,
+			mesh.resource_path
+		)
+		return
+
+	for surface_index: int in range(mesh.get_surface_count()):
+		var surface_material: Material = (
+			mesh.surface_get_material(surface_index)
+		)
+
+		if surface_material == null:
+			surface_material = StandardMaterial3D.new()
+			mesh.surface_set_material(
+				surface_index,
+				surface_material
+			)
+
+		_prepare_material_for_instance_colors(
+			surface_material,
+			mesh.resource_path
+		)
+
+
+func _prepare_material_for_instance_colors(
+	material: Material,
+	mesh_path: String
+) -> void:
+	if material is BaseMaterial3D:
+		var base_material := material as BaseMaterial3D
+
+		base_material.albedo_color = Color.WHITE
+		base_material.vertex_color_use_as_albedo = true
+		return
+
+	if material is ShaderMaterial:
+		push_warning(
+			(
+				"Shader material on '%s' must multiply ALBEDO by "
+				+ "COLOR.rgb to display MultiMesh instance colors."
+			) % mesh_path
+		)
 
 func _world_to_chunk(world_position: Vector3) -> Vector2i:
 	return Vector2i(

@@ -91,7 +91,8 @@ func query_radius(
 
 				if (
 					owner_filter != ANY_OWNER
-					and entities.owner_ids[entity_index] != owner_filter
+					and entities.owner_ids[entity_index]
+					!= owner_filter
 				):
 					continue
 
@@ -113,6 +114,166 @@ func query_radius(
 					results.append(entity_index)
 
 	return results
+
+
+# Writes the nearest matching entities into caller-owned fixed-size buffers.
+# Returns Vector2i(candidates examined, results written).
+func query_nearest_radius_into(
+	center: Vector3,
+	radius: float,
+	entities: EntityStore,
+	owner_filter: int,
+	excluded_entity_index: int,
+	maximum_results: int,
+	result_indices: PackedInt32Array,
+	result_distances_squared: PackedFloat32Array
+) -> Vector2i:
+	if not DawnfallLog.require_valid(
+		radius >= 0.0,
+		"Spatial query radius cannot be negative.",
+		&"SpatialGrid"
+	):
+		return Vector2i.ZERO
+
+	if not DawnfallLog.require_valid(
+		maximum_results > 0,
+		"Nearest spatial query requires a positive result limit.",
+		&"SpatialGrid"
+	):
+		return Vector2i.ZERO
+
+	if not DawnfallLog.require_valid(
+		result_indices.size() >= maximum_results
+		and result_distances_squared.size() >= maximum_results,
+		"Nearest spatial query buffers are smaller than the result limit.",
+		&"SpatialGrid"
+	):
+		return Vector2i.ZERO
+
+	var minimum_cell: Vector2i = world_to_cell(
+		Vector3(
+			center.x - radius,
+			0.0,
+			center.z - radius
+		)
+	)
+	var maximum_cell: Vector2i = world_to_cell(
+		Vector3(
+			center.x + radius,
+			0.0,
+			center.z + radius
+		)
+	)
+	var radius_squared: float = radius * radius
+	var examined_count: int = 0
+	var result_count: int = 0
+
+	for cell_x: int in range(
+		minimum_cell.x,
+		maximum_cell.x + 1
+	):
+		for cell_z: int in range(
+			minimum_cell.y,
+			maximum_cell.y + 1
+		):
+			var cell := Vector2i(cell_x, cell_z)
+
+			if not _cells.has(cell):
+				continue
+
+			var bucket: PackedInt32Array = _cells[cell]
+
+			for entity_index: int in bucket:
+				if entity_index == excluded_entity_index:
+					continue
+
+				if not entities.is_index_alive(entity_index):
+					continue
+
+				if (
+					owner_filter != ANY_OWNER
+					and entities.owner_ids[entity_index]
+					!= owner_filter
+				):
+					continue
+
+				examined_count += 1
+
+				var candidate_position: Vector3 = (
+					entities.positions[entity_index]
+				)
+				var difference_x: float = (
+					candidate_position.x - center.x
+				)
+				var difference_z: float = (
+					candidate_position.z - center.z
+				)
+				var distance_squared: float = (
+					difference_x * difference_x
+					+ difference_z * difference_z
+				)
+
+				if distance_squared > radius_squared:
+					continue
+
+				var insertion_index: int = result_count
+
+				for existing_slot: int in range(result_count):
+					var existing_distance: float = (
+						result_distances_squared[existing_slot]
+					)
+					var existing_entity_index: int = (
+						result_indices[existing_slot]
+					)
+
+					if (
+						distance_squared < existing_distance
+						or (
+							is_equal_approx(
+								distance_squared,
+								existing_distance
+							)
+							and entity_index
+							< existing_entity_index
+						)
+					):
+						insertion_index = existing_slot
+						break
+
+				if (
+					result_count == maximum_results
+					and insertion_index == result_count
+				):
+					continue
+
+				var final_slot: int = mini(
+					result_count,
+					maximum_results - 1
+				)
+
+				for shift_slot: int in range(
+					final_slot,
+					insertion_index,
+					-1
+				):
+					result_indices[shift_slot] = (
+						result_indices[shift_slot - 1]
+					)
+					result_distances_squared[shift_slot] = (
+						result_distances_squared[shift_slot - 1]
+					)
+
+				result_indices[insertion_index] = entity_index
+				result_distances_squared[insertion_index] = (
+					distance_squared
+				)
+				result_count = mini(
+					result_count + 1,
+					maximum_results
+				)
+
+	return Vector2i(examined_count, result_count)
+
 
 func query_aabb(
 	minimum: Vector3,
@@ -172,6 +333,7 @@ func query_aabb(
 					results.append(entity_index)
 
 	return results
+
 
 func world_to_cell(world_position: Vector3) -> Vector2i:
 	return Vector2i(

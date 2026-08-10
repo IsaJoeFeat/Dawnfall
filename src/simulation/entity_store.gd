@@ -6,6 +6,7 @@ const FLAG_HAS_MOVE_TARGET: int = 1 << 0
 
 
 var positions := PackedVector3Array()
+var collision_radii := PackedFloat32Array()
 var headings := PackedFloat32Array()
 
 var current_health := PackedFloat32Array()
@@ -33,6 +34,7 @@ func create_entity(
 	owner_id: int,
 	position: Vector3,
 	max_health: float,
+	collision_radius: float,
 	movement_max_speed: float,
 	movement_acceleration: float,
 	movement_deceleration: float,
@@ -69,6 +71,13 @@ func create_entity(
 		&"EntityStore"
 	):
 		return EntityId.INVALID
+	
+	if not DawnfallLog.require_valid(
+		collision_radius > 0.0,
+		"Collision radius must be greater than zero.",
+		&"EntityStore"
+	):
+		return EntityId.INVALID
 
 	var index: int
 
@@ -80,6 +89,7 @@ func create_entity(
 	_alive_flags[index] = 1
 	positions[index] = position
 	headings[index] = heading
+	collision_radii[index] = collision_radius
 
 	current_health[index] = max_health
 	maximum_health[index] = max_health
@@ -109,6 +119,7 @@ func destroy_entity(entity_id: int) -> bool:
 	_alive_flags[index] = 0
 	positions[index] = Vector3.ZERO
 	headings[index] = 0.0
+	collision_radii[index] = 0.0
 
 	current_health[index] = 0.0
 	maximum_health[index] = 0.0
@@ -203,6 +214,11 @@ func set_position(entity_id: int, new_position: Vector3) -> bool:
 	positions[index] = new_position
 	return true
 
+func get_id_by_index(index: int) -> int:
+	if not is_index_alive(index):
+		return EntityId.INVALID
+
+	return EntityId.create(index, _generations[index])
 
 func get_index_if_alive(entity_id: int) -> int:
 	if not is_alive(entity_id):
@@ -222,6 +238,7 @@ func capacity() -> int:
 func clear() -> void:
 	positions.clear()
 	headings.clear()
+	collision_radii.clear()
 
 	current_health.clear()
 	maximum_health.clear()
@@ -252,6 +269,7 @@ func _append_empty_slot() -> int:
 
 	positions.append(Vector3.ZERO)
 	headings.append(0.0)
+	collision_radii.append(0.0)
 
 	current_health.append(0.0)
 	maximum_health.append(0.0)
