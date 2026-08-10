@@ -7,8 +7,8 @@
 - **Project stage:** Planning and foundation
 - **Current milestone:** M0 — Project foundation
 - **Current gate:** Gate A — Scale feasibility
-- **Next task:** Create the Godot project scaffold and a minimal boot scene
-- **Target engine:** Godot 4.7 stable
+- **Next task:** Add structured logging, developer assertions, and a Windows development export preset
+- **Target engine:** Godot 4.7.1 stable
 - **Primary language:** GDScript initially; introduce C# or C++ only after profiling proves a need
 - **Primary platform:** PC, keyboard and mouse
 - **Repository:** `IsaJoeFeat/Dawnfall`
@@ -221,15 +221,15 @@ We prove new content is inexpensive enough to build the intended game.
 
 ### M0 — Project foundation
 
-- [ ] Pin the Godot version and renderer.
-- [ ] Create `project.godot` and a minimal boot scene.
-- [ ] Establish naming, formatting, typing, and folder conventions.
-- [ ] Add a central app bootstrap with explicit initialization order.
-- [ ] Add command-line/headless launch modes.
+- [x] Pin the Godot version and renderer.
+- [x] Create `project.godot` and a minimal boot scene.
+- [x] Establish naming, formatting, typing, and folder conventions.
+- [x] Add a central app bootstrap with explicit initialization order.
+- [x] Add command-line/headless launch modes.
 - [ ] Add logging levels and developer assertions.
 - [ ] Choose the code and content licenses.
 - [ ] Add contribution and asset-license rules.
-- [ ] Add the first Architecture Decision Records.
+- [x] Add the first Architecture Decision Records.
 - [ ] Confirm clean import, launch, and export on the development machine.
 
 **Done when:** a fresh clone opens in the pinned Godot version, launches a labeled empty battle scene, runs headlessly, and exports a Windows development build.
@@ -431,11 +431,9 @@ No milestone is complete solely because its code exists. It must meet its stated
 
 ## Immediate next sequence
 
-1. Install and pin Godot 4.7 stable Standard Edition.
-2. Scaffold the repository as a Godot project.
-3. Create the boot and empty battle scenes.
-4. Establish typed GDScript conventions and the app bootstrap.
-5. Add a headless smoke test.
-6. Export a Windows development build.
-7. Begin M1 with the entity storage and fixed simulation clock.
-
+1. Add structured logging and developer assertions.
+2. Choose the code and content licenses.
+3. Add contribution and asset-license rules.
+4. Add a Windows development export preset.
+5. Confirm a clean graphical launch and Windows export on the development PC.
+6. Begin M1 with entity storage and the fixed simulation clock.
