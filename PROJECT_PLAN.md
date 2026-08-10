@@ -7,7 +7,7 @@
 - **Project stage:** Scale feasibility laboratory
 - **Current milestone:** M1 — Scale laboratory
 - **Current gate:** Gate A — Scale feasibility
-- **Next task:** Avoid complete transform uploads when only part of the army moves
+- **Next task:** Measure frame time, memory, and draw calls at every standard scale
 - **Target engine:** Godot 4.7.1 stable
 - **Primary language:** GDScript initially; introduce C# or C++ only after profiling proves a need
 - **Primary platform:** PC, keyboard and mouse
@@ -245,7 +245,7 @@ We prove new content is inexpensive enough to build the intended game.
 - [x] Add batched command dispatch.
 - [ ] Add placeholder shared-path/flow-field movement.
 - [x] Build automated stress scenarios for 1,000, 2,000, 4,000, and 8,000 units.
-- [ ] Record CPU, frame time, memory, and draw-call results.
+- [ ] Record CPU, frame time, memory, and draw-call results. *(The 8,000-unit entity, spatial-grid, MultiMesh, and partial-upload baselines are recorded; the matched 1,000/2,000/4,000/8,000 matrix remains.)*
 
 **Done when:** Gate A passes or a written decision changes the target based on measured evidence.
 
@@ -436,9 +436,9 @@ No milestone is complete solely because its code exists. It must meet its stated
 
 ## Immediate next sequence
 
-1. Avoid complete transform uploads when only part of the army moves.
-2. Measure frame time, memory, and draw calls at every standard scale.
-3. Add individual click selection and drag-box selection.
-4. Add shared destination paths and formation slot assignment.
-5. Add local separation using the spatial grid.
+1. Measure frame time, memory, and draw calls at every standard scale.
+2. Add individual click selection and drag-box selection.
+3. Add shared destination paths and formation slot assignment.
+4. Add local separation using the spatial grid.
+5. Reassign moving render instances when they cross spatial render chunks.
 6. Complete the remaining M0 licensing, contribution, and Windows export tasks.
