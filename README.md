@@ -48,3 +48,13 @@ status code `0`.
   content production.
 
 See [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) before adding code.
+
+## Definition Pipeline v1
+
+Dawnfall's first data-driven content path is operational. A runtime catalog
+loads and validates reusable movement, armor, weapon, and unit resources before
+the battle scene starts. The current testing catalog contains placeholder
+infantry, tank, and Command HQ definitions.
+
+See [`docs/CONTENT_PIPELINE.md`](docs/CONTENT_PIPELINE.md) for the resource
+relationships, current limitations, and the safe unit-authoring workflow.

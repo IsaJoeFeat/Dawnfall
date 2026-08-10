@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/shared/definitions/weapon_definition.gd" id="1_00g6k"]
+
+[resource]
+script = ExtResource("1_00g6k")
+valid_target_categories = 19
+base_damage = 12.0
+reload_seconds = 1.2
+maximum_range = 220.0
+definition_id = &"weapon_test_rifle"
+display_name = "Placeholder Rifle"
+description = "Basic infantry rifle used to prove the definition pipeline."

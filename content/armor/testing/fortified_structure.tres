@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ArmorDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/shared/definitions/armor_definition.gd" id="1_qbwah"]
+
+[resource]
+script = ExtResource("1_qbwah")
+armor_class = 4
+front_armor = 60.0
+side_armor = 60.0
+rear_armor = 60.0
+top_armor = 40.0
+definition_id = &"armor_fortified_structure"
+display_name = "Fortified Structure"
+description = "Placeholder directional protection for command structures."

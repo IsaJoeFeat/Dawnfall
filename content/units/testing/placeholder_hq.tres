@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="UnitDefinition" format=3]
+
+[ext_resource type="Resource" path="res://content/armor/testing/fortified_structure.tres" id="1_7cus4"]
+[ext_resource type="Resource" path="res://content/movement/testing/immobile.tres" id="2_4us4v"]
+[ext_resource type="Script" path="res://src/shared/definitions/unit_definition.gd" id="3_4us4v"]
+[ext_resource type="Script" path="res://src/shared/definitions/weapon_definition.gd" id="4_bxum4"]
+[ext_resource type="Resource" path="res://content/weapons/testing/tank_machine_gun.tres" id="5_bxum4"]
+
+[resource]
+script = ExtResource("3_4us4v")
+faction = 1
+role = 0
+target_categories = 16
+max_health = 5000.0
+collision_radius = 3.5
+selection_radius = 4.0
+vision_range = 700.0
+movement_profile = ExtResource("2_4us4v")
+armor_profile = ExtResource("1_7cus4")
+weapons = Array[ExtResource("4_bxum4")]([ExtResource("5_bxum4")])
+is_buildable = false
+build_seconds = 0.0
+definition_id = &"unit_test_placeholder_hq"
+display_name = "Placeholder Command HQ"
+description = "Non-buildable command structure used to prove HQ data."

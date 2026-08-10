@@ -5,19 +5,19 @@ const EMPTY_BATTLE_SCENE: PackedScene = preload(
 	"res://scenes/battle/empty_battle.tscn"
 )
 
-const PLACEHOLDER_TANK_DEFINITION: UnitDefinition = preload(
-	"res://content/units/testing/placeholder_tank.tres"
+const CONTENT_CATALOG: DefinitionCatalog = preload(
+	"res://content/content_catalog.tres"
 )
 
 const SMOKE_TEST_ARGUMENT := "--smoke-test"
 const EXIT_SUCCESS := 0
 const EXIT_FAILURE := 1
 
-var _unit_definitions: UnitDefinitionRegistry
+var _definitions: DefinitionRegistry
 
 
 func _ready() -> void:
-	if not _initialize_unit_definitions():
+	if not _initialize_definitions():
 		get_tree().quit(EXIT_FAILURE)
 		return
 
@@ -28,18 +28,18 @@ func _ready() -> void:
 
 	var battle: Node = EMPTY_BATTLE_SCENE.instantiate()
 	add_child(battle)
-	print("Dawnfall booted into the empty battle scene")
+	DawnfallLog.info("Booted into the empty battle scene.", &"App")
 
 
-func _initialize_unit_definitions() -> bool:
-	_unit_definitions = UnitDefinitionRegistry.new()
+func _initialize_definitions() -> bool:
+	_definitions = DefinitionRegistry.new()
 
-	if not _unit_definitions.register(PLACEHOLDER_TANK_DEFINITION):
+	if not CONTENT_CATALOG.load_into(_definitions):
 		return false
 
-	print(
-		"Loaded %d validated unit definition(s)"
-		% _unit_definitions.size()
+	DawnfallLog.info(
+		"Loaded %s." % _definitions.summary(),
+		&"Definitions"
 	)
 	return true
 

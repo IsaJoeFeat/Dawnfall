@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="WeaponDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/shared/definitions/weapon_definition.gd" id="1_ncl8a"]
+
+[resource]
+script = ExtResource("1_ncl8a")
+delivery_type = 1
+valid_target_categories = 18
+base_damage = 120.0
+reload_seconds = 4.5
+maximum_range = 450.0
+splash_radius = 3.0
+projectile_speed = 220.0
+definition_id = &"weapon_test_tank_cannon"
+display_name = "Placeholder Tank Cannon"
+description = "Projectile cannon used to prove multi-weapon composition."

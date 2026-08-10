@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="DefinitionCatalog" format=3]
+
+[ext_resource type="Script" path="res://src/shared/definitions/game_definition.gd" id="1_cjti6"]
+[ext_resource type="Resource" path="res://content/movement/testing/infantry_basic.tres" id="2_xxvao"]
+[ext_resource type="Resource" path="res://content/movement/testing/tracked_medium.tres" id="3_f6vmm"]
+[ext_resource type="Resource" path="res://content/movement/testing/immobile.tres" id="4_8e2bw"]
+[ext_resource type="Resource" path="res://content/armor/testing/soft_target.tres" id="5_vaf0y"]
+[ext_resource type="Resource" path="res://content/armor/testing/medium_vehicle.tres" id="6_ulxot"]
+[ext_resource type="Resource" path="res://content/armor/testing/fortified_structure.tres" id="7_hn2ch"]
+[ext_resource type="Resource" path="res://content/weapons/testing/rifle.tres" id="8_2abul"]
+[ext_resource type="Resource" path="res://content/weapons/testing/tank_machine_gun.tres" id="9_bsyoq"]
+[ext_resource type="Resource" path="res://content/weapons/testing/tank_cannon.tres" id="10_i5qc5"]
+[ext_resource type="Resource" path="res://content/units/testing/placeholder_infantry.tres" id="11_nn1kk"]
+[ext_resource type="Resource" path="res://content/units/testing/placeholder_tank.tres" id="12_ra8tm"]
+[ext_resource type="Resource" path="res://content/units/testing/placeholder_hq.tres" id="13_lysep"]
+[ext_resource type="Script" path="res://src/shared/definitions/definition_catalog.gd" id="14_x11ev"]
+
+[resource]
+script = ExtResource("14_x11ev")
+definitions = Array[ExtResource("1_cjti6")]([ExtResource("2_xxvao"), ExtResource("3_f6vmm"), ExtResource("4_8e2bw"), ExtResource("5_vaf0y"), ExtResource("6_ulxot"), ExtResource("7_hn2ch"), ExtResource("8_2abul"), ExtResource("9_bsyoq"), ExtResource("10_i5qc5"), ExtResource("11_nn1kk"), ExtResource("12_ra8tm"), ExtResource("13_lysep")])

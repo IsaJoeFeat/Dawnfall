@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/shared/definitions/weapon_definition.gd" id="1_tck51"]
+
+[resource]
+script = ExtResource("1_tck51")
+valid_target_categories = 3
+base_damage = 8.0
+reload_seconds = 0.2
+maximum_range = 300.0
+definition_id = &"weapon_test_tank_machine_gun"
+display_name = "Placeholder Tank Machine Gun"
+description = "Shared secondary weapon for the placeholder tank."

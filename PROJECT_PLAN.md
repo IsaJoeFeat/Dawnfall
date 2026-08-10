@@ -7,7 +7,7 @@
 - **Project stage:** Planning and foundation
 - **Current milestone:** M0 — Project foundation
 - **Current gate:** Gate A — Scale feasibility
-- **Next task:** Add structured logging, developer assertions, and a Windows development export preset
+- **Next task:** Choose the code/content licenses and add a Windows development export preset
 - **Target engine:** Godot 4.7.1 stable
 - **Primary language:** GDScript initially; introduce C# or C++ only after profiling proves a need
 - **Primary platform:** PC, keyboard and mouse
@@ -226,7 +226,7 @@ We prove new content is inexpensive enough to build the intended game.
 - [x] Establish naming, formatting, typing, and folder conventions.
 - [x] Add a central app bootstrap with explicit initialization order.
 - [x] Add command-line/headless launch modes.
-- [ ] Add logging levels and developer assertions.
+- [x] Add logging levels and developer assertions.
 - [ ] Choose the code and content licenses.
 - [ ] Add contribution and asset-license rules.
 - [x] Add the first Architecture Decision Records.
@@ -315,6 +315,11 @@ We prove new content is inexpensive enough to build the intended game.
 **Done when:** Gate C passes.
 
 ### M7 — Content engine and developer tools
+
+**Foundation now available:** editable movement, armor, weapon, and unit
+resources; composition; an explicit content catalog; global ID validation; and
+reference validation. The compiler, automatic catalog generation, stable
+numeric runtime IDs, broader schemas, and authoring tools remain M7 work.
 
 - [ ] Definition compiler, schema, inheritance/composition rules, and stable IDs.
 - [ ] Unit, weapon, building, movement, armor, effect, and faction validators.
@@ -431,9 +436,8 @@ No milestone is complete solely because its code exists. It must meet its stated
 
 ## Immediate next sequence
 
-1. Add structured logging and developer assertions.
-2. Choose the code and content licenses.
-3. Add contribution and asset-license rules.
-4. Add a Windows development export preset.
-5. Confirm a clean graphical launch and Windows export on the development PC.
-6. Begin M1 with entity storage and the fixed simulation clock.
+1. Choose the code and content licenses.
+2. Add contribution and asset-license rules.
+3. Add a Windows development export preset.
+4. Confirm a clean graphical launch and Windows export on the development PC.
+5. Begin M1 with entity storage and the fixed simulation clock.

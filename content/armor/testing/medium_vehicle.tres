@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ArmorDefinition" format=3]
+
+[ext_resource type="Script" path="res://src/shared/definitions/armor_definition.gd" id="1_psuve"]
+
+[resource]
+script = ExtResource("1_psuve")
+armor_class = 2
+front_armor = 80.0
+side_armor = 40.0
+rear_armor = 30.0
+top_armor = 20.0
+definition_id = &"armor_medium_vehicle"
+display_name = "Medium Vehicle Armor"
+description = "Placeholder directional armor for a medium tank."
