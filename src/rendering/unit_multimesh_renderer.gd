@@ -2,7 +2,6 @@ class_name UnitMultiMeshRenderer
 extends Node3D
 
 const SELECTED_COLOR := Color(1.0, 0.95, 0.2)
-const LOD_HYSTERESIS_DISTANCE: float = 8.0
 
 class RenderPrototype:
 	var near_mesh: Mesh
@@ -287,30 +286,17 @@ func update_lod(camera_position: Vector3) -> int:
 		if group.multimesh == null:
 			continue
 
+		var lod_distance_squared: float = (
+			group.prototype.lod_distance
+			* group.prototype.lod_distance
+		)
 		var distance_squared: float = (
-			_nearest_group_distance_squared(
-				group,
-				camera_position
+			camera_position.distance_squared_to(
+				group.chunk_center
 			)
 		)
-
-		if is_inf(distance_squared):
-			continue
-
-		var switching_distance: float = (
-			group.prototype.lod_distance
-		)
-
-		if group.is_far_lod:
-			switching_distance -= LOD_HYSTERESIS_DISTANCE
-		else:
-			switching_distance += LOD_HYSTERESIS_DISTANCE
-
-		switching_distance = maxf(switching_distance, 1.0)
-
 		var should_use_far_lod: bool = (
-			distance_squared
-			> switching_distance * switching_distance
+			distance_squared > lod_distance_squared
 		)
 
 		if should_use_far_lod == group.is_far_lod:
@@ -326,35 +312,6 @@ func update_lod(camera_position: Vector3) -> int:
 		changed_groups += 1
 
 	return changed_groups
-	
-func _nearest_group_distance_squared(
-	group: RenderGroup,
-	camera_position: Vector3
-) -> float:
-	var nearest_distance_squared: float = INF
-
-	for entity_index: int in group.entity_indices:
-		if not _simulation_world.entities.is_index_alive(
-			entity_index
-		):
-			continue
-
-		var entity_position: Vector3 = (
-			_simulation_world.entities.positions[entity_index]
-		)
-
-		var distance_squared: float = (
-			camera_position.distance_squared_to(
-				entity_position
-			)
-		)
-
-		nearest_distance_squared = minf(
-			nearest_distance_squared,
-			distance_squared
-		)
-
-	return nearest_distance_squared
 
 
 func draw_group_count() -> int:
