@@ -271,13 +271,56 @@ func _plan_entity(
 			candidate_position
 		)
 	):
-		# Terrain legality outranks steering.
-		# Keep the order active so future routing can
-		# provide a legal path around the obstacle.
-		_planned_positions[index] = current_position
+		var recovery_position: Vector3 = (
+			_find_terrain_recovery_position(
+				navigation_grid,
+				current_position,
+				target_position,
+				target_direction,
+				travel_distance
+			)
+		)
+
+		if not recovery_position.is_equal_approx(
+			current_position
+		):
+			var recovery_direction: Vector3 = (
+				recovery_position
+				- current_position
+			)
+
+			recovery_direction.y = 0.0
+
+			if (
+				recovery_direction.length_squared()
+				> MINIMUM_DISTANCE_SQUARED
+			):
+				_cached_steering_directions[index] = (
+					recovery_direction.normalized()
+				)
+
+			_planned_positions[index] = (
+				recovery_position
+			)
+
+			_planned_speeds[index] = (
+				current_speed
+			)
+
+			_planned_arrivals[index] = 0
+
+			return
+
+		# No legal local movement exists this tick.
+		_planned_positions[index] = (
+			current_position
+		)
+
 		_planned_speeds[index] = 0.0
 		_planned_arrivals[index] = 0
+
 		_cached_steering_valid[index] = 0
+
 		return
 
 	if arrives_this_tick:
@@ -289,6 +332,124 @@ func _plan_entity(
 
 	_planned_positions[index] = candidate_position
 
+func _find_terrain_recovery_position(
+	navigation_grid: NavigationGrid,
+	current_position: Vector3,
+	target_position: Vector3,
+	target_direction: Vector3,
+	travel_distance: float
+) -> Vector3:
+	# First ignore local avoidance and try moving
+	# directly toward the current route waypoint.
+	var direct_candidate: Vector3 = (
+		current_position
+		+ target_direction * travel_distance
+	)
+
+	if navigation_grid.is_movement_step_traversable(
+		current_position,
+		direct_candidate
+	):
+		return direct_candidate
+
+	var target_offset: Vector3 = (
+		target_position
+		- current_position
+	)
+
+	target_offset.y = 0.0
+
+	var best_position: Vector3 = (
+		current_position
+	)
+
+	var best_distance_squared: float = (
+		target_offset.length_squared()
+	)
+
+	# If the direct diagonal movement is obstructed,
+	# try sliding horizontally toward the waypoint.
+	if not is_zero_approx(
+		target_offset.x
+	):
+		var x_distance: float = minf(
+			travel_distance,
+			absf(target_offset.x)
+		)
+
+		var x_candidate := Vector3(
+			current_position.x
+			+ signf(target_offset.x)
+			* x_distance,
+			current_position.y,
+			current_position.z
+		)
+
+		if navigation_grid.is_movement_step_traversable(
+			current_position,
+			x_candidate
+		):
+			var x_remaining: Vector3 = (
+				target_position
+				- x_candidate
+			)
+
+			x_remaining.y = 0.0
+
+			var x_distance_squared: float = (
+				x_remaining.length_squared()
+			)
+
+			if (
+				x_distance_squared
+				< best_distance_squared
+			):
+				best_distance_squared = (
+					x_distance_squared
+				)
+
+				best_position = x_candidate
+
+	# Then try sliding vertically across the XZ
+	# navigation plane toward the waypoint.
+	if not is_zero_approx(
+		target_offset.z
+	):
+		var z_distance: float = minf(
+			travel_distance,
+			absf(target_offset.z)
+		)
+
+		var z_candidate := Vector3(
+			current_position.x,
+			current_position.y,
+			current_position.z
+			+ signf(target_offset.z)
+			* z_distance
+		)
+
+		if navigation_grid.is_movement_step_traversable(
+			current_position,
+			z_candidate
+		):
+			var z_remaining: Vector3 = (
+				target_position
+				- z_candidate
+			)
+
+			z_remaining.y = 0.0
+
+			var z_distance_squared: float = (
+				z_remaining.length_squared()
+			)
+
+			if (
+				z_distance_squared
+				< best_distance_squared
+			):
+				best_position = z_candidate
+
+	return best_position
 
 func _calculate_steering_direction(
 	entities: EntityStore,

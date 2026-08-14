@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://g6l66046l5su"]
+
+[ext_resource type="Script" uid="uid://dka10pi1pyyd2" path="res://tests/simulation/congestion_navigation_test.gd" id="1_gr7wc"]
+
+[node name="CongestionNavigationTest" type="Node3D" unique_id=1131833111]
+script = ExtResource("1_gr7wc")
