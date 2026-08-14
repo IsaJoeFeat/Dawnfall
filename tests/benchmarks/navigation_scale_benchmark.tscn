@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bj1u2xddmctog"]
+
+[ext_resource type="Script" uid="uid://8jeh1gq5go7a" path="res://tests/benchmarks/navigation_scale_benchmark.gd" id="1_6ls00"]
+
+[node name="NavigationScaleBenchmark" type="Node3D" unique_id=863463713]
+script = ExtResource("1_6ls00")

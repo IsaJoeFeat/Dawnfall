@@ -136,7 +136,7 @@ func _plan_entity(
 	if distance <= ARRIVAL_DISTANCE:
 		if (
 			navigation_grid != null
-			and not navigation_grid.is_segment_traversable(
+			and not navigation_grid.is_movement_step_traversable(
 				current_position,
 				target_position
 			)
@@ -266,7 +266,7 @@ func _plan_entity(
 
 	if (
 		navigation_grid != null
-		and not navigation_grid.is_segment_traversable(
+		and not navigation_grid.is_movement_step_traversable(
 			current_position,
 			candidate_position
 		)

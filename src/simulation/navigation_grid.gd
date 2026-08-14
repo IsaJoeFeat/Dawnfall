@@ -121,6 +121,75 @@ func is_world_position_traversable(
 
 	return not is_cell_blocked(cell)
 
+func is_movement_step_traversable(
+	start_world: Vector3,
+	end_world: Vector3
+) -> bool:
+	var start_cell: Vector2i = world_to_cell(
+		start_world
+	)
+
+	var end_cell: Vector2i = world_to_cell(
+		end_world
+	)
+
+	# Normal movement usually remains inside the
+	# unit's current navigation cell. The current
+	# position is already known to be legal, so no
+	# AStarGrid2D lookup is necessary.
+	if start_cell == end_cell:
+		return true
+
+	var cell_delta: Vector2i = (
+		end_cell - start_cell
+	)
+
+	# Most remaining movement steps enter one
+	# immediately adjacent navigation cell.
+	if (
+		absi(cell_delta.x) <= 1
+		and absi(cell_delta.y) <= 1
+	):
+		if is_cell_blocked(
+			end_cell
+		):
+			return false
+
+		# Preserve the same diagonal corner-cutting
+		# protection as the full segment test.
+		if (
+			cell_delta.x != 0
+			and cell_delta.y != 0
+		):
+			var horizontal_cell := Vector2i(
+				end_cell.x,
+				start_cell.y
+			)
+
+			var vertical_cell := Vector2i(
+				start_cell.x,
+				end_cell.y
+			)
+
+			if (
+				is_cell_blocked(
+					horizontal_cell
+				)
+				or is_cell_blocked(
+					vertical_cell
+				)
+			):
+				return false
+
+		return true
+
+	# Very fast units or unusually large time steps
+	# can cross multiple cells. Those retain the
+	# full authoritative segment traversal.
+	return is_segment_traversable(
+		start_world,
+		end_world
+	)
 
 func is_segment_traversable(
 	start_world: Vector3,
