@@ -326,9 +326,9 @@ func _process(delta: float) -> void:
 		)
 
 		assert(
-			_last_updated_instances
-			== changed_transform_indices.size(),
-			"Every changed transform should update one render instance."
+		_last_updated_instances
+		>= changed_transform_indices.size(),
+		"Changed transforms must not be dropped by rendering."
 		)
 		assert(
 		_last_updated_instances <= _entity_count,

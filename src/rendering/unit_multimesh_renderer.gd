@@ -54,6 +54,7 @@ var _rendered_instance_count: int = 0
 var _entity_groups: Array[RenderGroup] = []
 var _entity_instance_indices := PackedInt32Array()
 var _selected_entity_lookup: Dictionary = {}
+var _total_chunk_migration_count: int = 0
 
 
 func register_prototype(
@@ -222,28 +223,124 @@ func _sync_all_from_simulation() -> int:
 
 	return updated_instances
 
-
 func sync_changed_from_simulation(
 	changed_entity_indices: PackedInt32Array
 ) -> int:
 	if _simulation_world == null:
 		return 0
 
-	var updated_instances: int = 0
+	var touched_group_keys: Dictionary = {}
 
+	# First pass: update render-chunk membership.
 	for entity_index: int in changed_entity_indices:
 		if (
 			entity_index < 0
 			or entity_index >= _entity_groups.size()
+			or not _simulation_world.entities.is_index_alive(
+				entity_index
+			)
+		):
+			continue
+
+		var current_group: RenderGroup = (
+			_entity_groups[entity_index]
+		)
+
+		if current_group == null:
+			continue
+
+		var entity_position: Vector3 = (
+			_simulation_world.entities.positions[entity_index]
+		)
+		var new_chunk_coordinate: Vector2i = _world_to_chunk(
+			entity_position
+		)
+
+		if (
+			new_chunk_coordinate
+			== current_group.chunk_coordinate
+		):
+			continue
+
+		var definition_index: int = (
+			_simulation_world.entities.definition_indices[
+				entity_index
+			]
+		)
+
+		var old_group_key := _make_group_key(
+			definition_index,
+			current_group.chunk_coordinate
+		)
+		var new_group_key := _make_group_key(
+			definition_index,
+			new_chunk_coordinate
+		)
+
+		var destination_group: RenderGroup = (
+			_get_or_create_render_group(
+				definition_index,
+				new_chunk_coordinate
+			)
+		)
+
+		if destination_group == null:
+			continue
+
+		if not _move_entity_between_groups(
+			entity_index,
+			current_group,
+			destination_group
+		):
+			continue
+
+		touched_group_keys[old_group_key] = true
+		touched_group_keys[new_group_key] = true
+		_total_chunk_migration_count += 1
+
+	var updated_instances: int = 0
+
+	# Rebuild groups whose membership changed.
+	for group_key_value: Variant in touched_group_keys.keys():
+		var group_key: Vector3i = group_key_value
+
+		if not _groups.has(group_key):
+			continue
+
+		var group: RenderGroup = _groups[group_key]
+
+		updated_instances += _rebuild_render_group(group)
+
+	# Normal dirty-transform uploads for groups that did not
+	# change membership.
+	for entity_index: int in changed_entity_indices:
+		if (
+			entity_index < 0
+			or entity_index >= _entity_groups.size()
+			or not _simulation_world.entities.is_index_alive(
+				entity_index
+			)
 		):
 			continue
 
 		var group: RenderGroup = _entity_groups[entity_index]
+
+		if group == null:
+			continue
+
+		var group_key := _make_group_key(
+			group.definition_index,
+			group.chunk_coordinate
+		)
+
+		if touched_group_keys.has(group_key):
+			continue
+
 		var instance_index: int = (
 			_entity_instance_indices[entity_index]
 		)
 
-		if group == null or instance_index < 0:
+		if instance_index < 0:
 			continue
 
 		if _sync_entity_transform(
@@ -359,6 +456,200 @@ func far_lod_group_count() -> int:
 func rendered_instance_count() -> int:
 	return _rendered_instance_count
 
+func total_chunk_migration_count() -> int:
+	return _total_chunk_migration_count
+
+
+func _make_group_key(
+	definition_index: int,
+	chunk_coordinate: Vector2i
+) -> Vector3i:
+	return Vector3i(
+		definition_index,
+		chunk_coordinate.x,
+		chunk_coordinate.y
+	)
+
+
+func _get_or_create_render_group(
+	definition_index: int,
+	chunk_coordinate: Vector2i
+) -> RenderGroup:
+	var group_key := _make_group_key(
+		definition_index,
+		chunk_coordinate
+	)
+
+	if _groups.has(group_key):
+		return _groups[group_key]
+
+	if not _prototypes.has(definition_index):
+		return null
+
+	var prototype: RenderPrototype = _prototypes[
+		definition_index
+	]
+	var chunk_center := Vector3(
+		(float(chunk_coordinate.x) + 0.5)
+		* render_chunk_size,
+		0.0,
+		(float(chunk_coordinate.y) + 0.5)
+		* render_chunk_size
+	)
+
+	var group := RenderGroup.new(
+		prototype,
+		definition_index,
+		chunk_coordinate,
+		chunk_center
+	)
+
+	_groups[group_key] = group
+
+	return group
+
+
+func _move_entity_between_groups(
+	entity_index: int,
+	source_group: RenderGroup,
+	destination_group: RenderGroup
+) -> bool:
+	var source_instance_index: int = (
+		_entity_instance_indices[entity_index]
+	)
+
+	if (
+		source_instance_index < 0
+		or source_instance_index
+		>= source_group.entity_indices.size()
+	):
+		return false
+
+	var last_source_index: int = (
+		source_group.entity_indices.size() - 1
+	)
+
+	if source_instance_index != last_source_index:
+		var swapped_entity_index: int = (
+			source_group.entity_indices[last_source_index]
+		)
+
+		source_group.entity_indices[
+			source_instance_index
+		] = swapped_entity_index
+
+		_entity_instance_indices[
+			swapped_entity_index
+		] = source_instance_index
+
+	source_group.entity_indices.resize(last_source_index)
+
+	var destination_instance_index: int = (
+		destination_group.entity_indices.size()
+	)
+
+	destination_group.entity_indices.append(entity_index)
+
+	_entity_groups[entity_index] = destination_group
+	_entity_instance_indices[
+		entity_index
+	] = destination_instance_index
+
+	return true
+
+func _rebuild_render_group(
+	group: RenderGroup
+) -> int:
+	var group_key := _make_group_key(
+		group.definition_index,
+		group.chunk_coordinate
+	)
+
+	if group.entity_indices.is_empty():
+		if group.node != null:
+			group.node.queue_free()
+
+		group.node = null
+		group.multimesh = null
+		_groups.erase(group_key)
+
+		return 0
+
+	if group.node == null:
+		var multimesh_node := MultiMeshInstance3D.new()
+
+		multimesh_node.name = (
+			"Definition_%d_Chunk_%d_%d"
+			% [
+				group.definition_index,
+				group.chunk_coordinate.x,
+				group.chunk_coordinate.y,
+			]
+		)
+		multimesh_node.cast_shadow = (
+			GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		)
+
+		add_child(multimesh_node)
+		group.node = multimesh_node
+
+	var multimesh := MultiMesh.new()
+
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.use_colors = true
+
+	if group.is_far_lod:
+		multimesh.mesh = group.prototype.far_mesh
+	else:
+		multimesh.mesh = group.prototype.near_mesh
+
+	multimesh.instance_count = group.entity_indices.size()
+	multimesh.visible_instance_count = (
+		group.entity_indices.size()
+	)
+
+	group.node.multimesh = multimesh
+	group.multimesh = multimesh
+
+	var updated_instances: int = 0
+
+	for instance_index: int in range(
+		group.entity_indices.size()
+	):
+		var entity_index: int = group.entity_indices[
+			instance_index
+		]
+
+		_entity_groups[entity_index] = group
+		_entity_instance_indices[
+			entity_index
+		] = instance_index
+
+		var color: Color
+
+		if _selected_entity_lookup.has(entity_index):
+			color = SELECTED_COLOR
+		else:
+			var owner_id: int = (
+				_simulation_world.entities.owner_ids[
+					entity_index
+				]
+			)
+			color = _get_owner_color(owner_id)
+
+		multimesh.set_instance_color(
+			instance_index,
+			color
+		)
+
+		if _sync_entity_transform(
+			group,
+			instance_index,
+			entity_index
+		):
+			updated_instances += 1
+
+	return updated_instances
 
 func _create_render_group(group: RenderGroup) -> void:
 	var multimesh := MultiMesh.new()
@@ -567,3 +858,4 @@ func _clear_render_groups() -> void:
 	_entity_groups.clear()
 	_entity_instance_indices.clear()
 	_selected_entity_lookup.clear()
+	_total_chunk_migration_count = 0
