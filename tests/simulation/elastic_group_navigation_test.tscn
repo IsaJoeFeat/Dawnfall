@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cae1ddpqhbndx"]
+
+[ext_resource type="Script" uid="uid://bqrioik4m22ol" path="res://tests/simulation/elastic_group_navigation_test.gd" id="1_us0mg"]
+
+[node name="ElasticGroupNavigationTest" type="Node3D" unique_id=596176278]
+script = ExtResource("1_us0mg")
