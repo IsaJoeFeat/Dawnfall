@@ -38,7 +38,8 @@ var _avoidance_phase: int = 0
 func step(
 	entities: EntityStore,
 	spatial_grid: SpatialGrid,
-	delta_seconds: float
+	delta_seconds: float,
+	navigation_grid: NavigationGrid = null
 ) -> PackedInt32Array:
 	var changed_indices := PackedInt32Array()
 
@@ -74,7 +75,8 @@ func step(
 			delta_seconds,
 			maximum_collision_radius,
 			maximum_movement_speed,
-			prediction_seconds
+			prediction_seconds,
+			navigation_grid
 		)
 
 	# Application pass: every plan used the same start-of-tick state.
@@ -115,7 +117,8 @@ func _plan_entity(
 	delta_seconds: float,
 	maximum_collision_radius: float,
 	maximum_movement_speed: float,
-	prediction_seconds: float
+	prediction_seconds: float,
+	navigation_grid: NavigationGrid
 ) -> void:
 	var current_position: Vector3 = entities.positions[index]
 	var target_position: Vector3 = entities.movement_targets[index]
@@ -131,6 +134,17 @@ func _plan_entity(
 	_planned_arrivals[index] = 0
 
 	if distance <= ARRIVAL_DISTANCE:
+		if (
+			navigation_grid != null
+			and not navigation_grid.is_segment_traversable(
+				current_position,
+				target_position
+			)
+		):
+			_planned_speeds[index] = 0.0
+			_cached_steering_valid[index] = 0
+			return
+
 		_planned_positions[index] = target_position
 		_planned_speeds[index] = 0.0
 		_planned_arrivals[index] = 1
@@ -236,17 +250,44 @@ func _plan_entity(
 		distance
 	)
 
-	if travel_distance >= distance:
+	var arrives_this_tick: bool = (
+		travel_distance >= distance
+	)
+
+	var candidate_position: Vector3
+
+	if arrives_this_tick:
+		candidate_position = target_position
+	else:
+		candidate_position = (
+			current_position
+			+ steering_direction * travel_distance
+		)
+
+	if (
+		navigation_grid != null
+		and not navigation_grid.is_segment_traversable(
+			current_position,
+			candidate_position
+		)
+	):
+		# Terrain legality outranks steering.
+		# Keep the order active so future routing can
+		# provide a legal path around the obstacle.
+		_planned_positions[index] = current_position
+		_planned_speeds[index] = 0.0
+		_planned_arrivals[index] = 0
+		_cached_steering_valid[index] = 0
+		return
+
+	if arrives_this_tick:
 		_planned_positions[index] = target_position
 		_planned_speeds[index] = 0.0
 		_planned_arrivals[index] = 1
 		_cached_steering_valid[index] = 0
 		return
 
-	_planned_positions[index] = (
-		current_position
-		+ steering_direction * travel_distance
-	)
+	_planned_positions[index] = candidate_position
 
 
 func _calculate_steering_direction(

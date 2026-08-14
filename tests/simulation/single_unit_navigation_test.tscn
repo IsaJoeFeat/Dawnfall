@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://gqgs26c7uval"]
+
+[ext_resource type="Script" uid="uid://ckr2lklikv582" path="res://tests/simulation/single_unit_navigation_test.gd" id="1_v4jsu"]
+
+[node name="SingleUnitNavigationTest" type="Node3D" unique_id=1827715165]
+script = ExtResource("1_v4jsu")

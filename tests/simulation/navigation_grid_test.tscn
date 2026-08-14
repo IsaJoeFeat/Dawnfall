@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b3gkssxhw4lqc"]
+
+[ext_resource type="Script" uid="uid://caqp1y7fhtmbw" path="res://tests/simulation/navigation_grid_test.gd" id="1_vfyrc"]
+
+[node name="NavigationGridTest" type="Node3D" unique_id=385520869]
+script = ExtResource("1_vfyrc")

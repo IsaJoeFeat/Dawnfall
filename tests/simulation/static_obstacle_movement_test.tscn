@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://ftuwx7q5iau"]
+
+[ext_resource type="Script" uid="uid://dcig0nrcopvfx" path="res://tests/simulation/static_obstacle_movement_test.gd" id="1_bxset"]
+
+[node name="StaticObstacleMovementTest" type="Node3D" unique_id=2021767329]
+script = ExtResource("1_bxset")
