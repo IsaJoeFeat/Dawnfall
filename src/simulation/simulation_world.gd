@@ -8,6 +8,8 @@ var movement_system := MovementSystem.new()
 var spatial_grid := SpatialGrid.new(8.0)
 var shared_route_request_count: int = 0
 var last_shared_route := PackedVector3Array()
+var last_movement_milliseconds: float = 0.0
+var last_grid_rebuild_milliseconds: float = 0.0
 
 
 var _changed_transform_indices := PackedInt32Array()
@@ -172,11 +174,18 @@ func consume_changed_transform_indices() -> PackedInt32Array:
 
 
 func _simulate_tick(delta_seconds: float) -> void:
+	var movement_start: int = Time.get_ticks_usec()
+
 	var changed_indices: PackedInt32Array = movement_system.step(
-	entities,
-	spatial_grid,
-	delta_seconds
-)
+		entities,
+		spatial_grid,
+		delta_seconds
+	)
+
+	last_movement_milliseconds = (
+		float(Time.get_ticks_usec() - movement_start)
+		/ 1000.0
+	)
 
 	for entity_index: int in changed_indices:
 		if _changed_transform_lookup.has(entity_index):
@@ -185,4 +194,11 @@ func _simulate_tick(delta_seconds: float) -> void:
 		_changed_transform_lookup[entity_index] = true
 		_changed_transform_indices.append(entity_index)
 
+	var grid_start: int = Time.get_ticks_usec()
+
 	spatial_grid.rebuild(entities)
+
+	last_grid_rebuild_milliseconds = (
+		float(Time.get_ticks_usec() - grid_start)
+		/ 1000.0
+	)

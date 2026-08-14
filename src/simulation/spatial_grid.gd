@@ -116,8 +116,6 @@ func query_radius(
 	return results
 
 
-# Writes the nearest matching entities into caller-owned fixed-size buffers.
-# Returns Vector2i(candidates examined, results written).
 func query_nearest_radius_into(
 	center: Vector3,
 	radius: float,
@@ -128,25 +126,13 @@ func query_nearest_radius_into(
 	result_indices: PackedInt32Array,
 	result_distances_squared: PackedFloat32Array
 ) -> Vector2i:
-	if not DawnfallLog.require_valid(
-		radius >= 0.0,
-		"Spatial query radius cannot be negative.",
-		&"SpatialGrid"
-	):
-		return Vector2i.ZERO
-
-	if not DawnfallLog.require_valid(
-		maximum_results > 0,
-		"Nearest spatial query requires a positive result limit.",
-		&"SpatialGrid"
-	):
-		return Vector2i.ZERO
-
-	if not DawnfallLog.require_valid(
-		result_indices.size() >= maximum_results
-		and result_distances_squared.size() >= maximum_results,
-		"Nearest spatial query buffers are smaller than the result limit.",
-		&"SpatialGrid"
+	# This is a simulation hot path. The caller owns correctly sized
+	# buffers, so keep validation lightweight here.
+	if (
+		radius < 0.0
+		or maximum_results <= 0
+		or result_indices.size() < maximum_results
+		or result_distances_squared.size() < maximum_results
 	):
 		return Vector2i.ZERO
 
@@ -164,6 +150,7 @@ func query_nearest_radius_into(
 			center.z + radius
 		)
 	)
+
 	var radius_squared: float = radius * radius
 	var examined_count: int = 0
 	var result_count: int = 0
@@ -177,19 +164,20 @@ func query_nearest_radius_into(
 			maximum_cell.y + 1
 		):
 			var cell := Vector2i(cell_x, cell_z)
+			var bucket_value: Variant = _cells.get(cell)
 
-			if not _cells.has(cell):
+			if bucket_value == null:
 				continue
 
-			var bucket: PackedInt32Array = _cells[cell]
+			var bucket: PackedInt32Array = bucket_value
 
 			for entity_index: int in bucket:
 				if entity_index == excluded_entity_index:
 					continue
 
-				if not entities.is_index_alive(entity_index):
-					continue
-
+				# The spatial grid is rebuilt from living entities, so
+				# repeating an alive lookup for every candidate is
+				# unnecessary during this movement query.
 				if (
 					owner_filter != ANY_OWNER
 					and entities.owner_ids[entity_index]
@@ -216,11 +204,25 @@ func query_nearest_radius_into(
 				if distance_squared > radius_squared:
 					continue
 
+				# Results are kept nearest-first. Once the buffer is
+				# full, reject anything farther than the current
+				# farthest neighbor immediately.
+				if (
+					result_count == maximum_results
+					and distance_squared
+					>= result_distances_squared[
+						maximum_results - 1
+					]
+				):
+					continue
+
 				var insertion_index: int = result_count
 
 				for existing_slot: int in range(result_count):
 					var existing_distance: float = (
-						result_distances_squared[existing_slot]
+						result_distances_squared[
+							existing_slot
+						]
 					)
 					var existing_entity_index: int = (
 						result_indices[existing_slot]
@@ -240,12 +242,6 @@ func query_nearest_radius_into(
 						insertion_index = existing_slot
 						break
 
-				if (
-					result_count == maximum_results
-					and insertion_index == result_count
-				):
-					continue
-
 				var final_slot: int = mini(
 					result_count,
 					maximum_results - 1
@@ -260,13 +256,16 @@ func query_nearest_radius_into(
 						result_indices[shift_slot - 1]
 					)
 					result_distances_squared[shift_slot] = (
-						result_distances_squared[shift_slot - 1]
+						result_distances_squared[
+							shift_slot - 1
+						]
 					)
 
 				result_indices[insertion_index] = entity_index
 				result_distances_squared[insertion_index] = (
 					distance_squared
 				)
+
 				result_count = mini(
 					result_count + 1,
 					maximum_results

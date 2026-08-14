@@ -10,6 +10,7 @@ const SEPARATION_STRENGTH: float = 1.25
 const SIDE_STEP_STRENGTH: float = 0.65
 const PREDICTION_TICK_COUNT: float = 3.0
 const MAXIMUM_NEIGHBORS: int = 8
+const AVOIDANCE_REFRESH_PHASES: int = 4
 const MINIMUM_DISTANCE_SQUARED: float = 0.000001
 
 
@@ -23,8 +24,15 @@ var _planned_positions := PackedVector3Array()
 var _planned_headings := PackedFloat32Array()
 var _planned_speeds := PackedFloat32Array()
 var _planned_arrivals := PackedByteArray()
+
 var _neighbor_indices := PackedInt32Array()
 var _neighbor_distances_squared := PackedFloat32Array()
+
+var _cached_steering_directions := PackedVector3Array()
+var _cached_targets := PackedVector3Array()
+var _cached_steering_valid := PackedByteArray()
+
+var _avoidance_phase: int = 0
 
 
 func step(
@@ -54,6 +62,7 @@ func step(
 	# Planning pass: nothing in EntityStore is changed here.
 	for index: int in range(entities.capacity()):
 		if not entities.has_move_target_by_index(index):
+			_cached_steering_valid[index] = 0
 			continue
 
 		_moving_indices.append(index)
@@ -91,6 +100,11 @@ func step(
 		):
 			changed_indices.append(index)
 
+	_avoidance_phase = (
+		(_avoidance_phase + 1)
+		% AVOIDANCE_REFRESH_PHASES
+	)
+
 	return changed_indices
 
 
@@ -120,18 +134,48 @@ func _plan_entity(
 		_planned_positions[index] = target_position
 		_planned_speeds[index] = 0.0
 		_planned_arrivals[index] = 1
+		_cached_steering_valid[index] = 0
 		return
 
 	var target_direction: Vector3 = target_offset / distance
-	var steering_direction: Vector3 = _calculate_steering_direction(
-		entities,
-		spatial_grid,
-		index,
-		target_direction,
-		maximum_collision_radius,
-		maximum_movement_speed,
-		prediction_seconds
+
+	var target_changed: bool = (
+		_cached_steering_valid[index] == 0
+		or not _cached_targets[index].is_equal_approx(
+			target_position
+		)
 	)
+
+	if target_changed:
+		_cached_targets[index] = target_position
+		_cached_steering_directions[index] = target_direction
+		_cached_steering_valid[index] = 1
+
+	var refresh_avoidance: bool = (
+		index % AVOIDANCE_REFRESH_PHASES
+		== _avoidance_phase
+	)
+
+	var steering_direction: Vector3
+
+	if refresh_avoidance:
+		steering_direction = _calculate_steering_direction(
+			entities,
+			spatial_grid,
+			index,
+			target_direction,
+			maximum_collision_radius,
+			maximum_movement_speed,
+			prediction_seconds
+		)
+
+		_cached_steering_directions[index] = (
+			steering_direction
+		)
+	else:
+		steering_direction = (
+			_cached_steering_directions[index]
+		)
 
 	var desired_heading: float = atan2(
 		steering_direction.x,
@@ -196,6 +240,7 @@ func _plan_entity(
 		_planned_positions[index] = target_position
 		_planned_speeds[index] = 0.0
 		_planned_arrivals[index] = 1
+		_cached_steering_valid[index] = 0
 		return
 
 	_planned_positions[index] = (
@@ -216,6 +261,7 @@ func _calculate_steering_direction(
 	var current_position: Vector3 = entities.positions[index]
 	var own_radius: float = entities.collision_radii[index]
 	var own_maximum_speed: float = entities.maximum_speeds[index]
+
 	var query_radius: float = (
 		own_radius
 		+ maximum_collision_radius
@@ -238,6 +284,7 @@ func _calculate_steering_direction(
 			_neighbor_distances_squared
 		)
 	)
+
 	var examined_count: int = query_counts.x
 	var neighbor_count: int = query_counts.y
 
@@ -251,6 +298,7 @@ func _calculate_steering_direction(
 	var separation := Vector3.ZERO
 	var side_step := Vector3.ZERO
 	var influence_count: int = 0
+
 	var own_velocity: Vector3 = (
 		target_direction
 		* entities.current_speeds[index]
@@ -263,6 +311,7 @@ func _calculate_steering_direction(
 		var neighbor_position: Vector3 = (
 			entities.positions[neighbor_index]
 		)
+
 		var to_neighbor: Vector3 = (
 			neighbor_position - current_position
 		)
@@ -273,19 +322,23 @@ func _calculate_steering_direction(
 			_neighbor_distances_squared[neighbor_slot]
 		)
 		var distance: float = sqrt(distance_squared)
+
 		var minimum_separation: float = (
 			own_radius
 			+ entities.collision_radii[neighbor_index]
 		)
+
 		var neighbor_velocity: Vector3 = (
 			_get_current_velocity(
 				entities,
 				neighbor_index
 			)
 		)
+
 		var relative_velocity: Vector3 = (
 			own_velocity - neighbor_velocity
 		)
+
 		var closing_speed: float = 0.0
 
 		if distance_squared > MINIMUM_DISTANCE_SQUARED:
@@ -346,6 +399,7 @@ func _calculate_steering_direction(
 		return target_direction
 
 	var divisor: float = float(influence_count)
+
 	var steered_direction: Vector3 = (
 		target_direction
 		+ (
@@ -402,6 +456,7 @@ func _pair_side_sign(
 		first_index,
 		second_index
 	)
+
 	var mixed_value: int = (
 		(lower_index * 73856093)
 		^ (upper_index * 19349663)
@@ -428,12 +483,16 @@ func _find_global_maxima(
 			maximum_radius,
 			entities.collision_radii[index]
 		)
+
 		maximum_speed = maxf(
 			maximum_speed,
 			entities.maximum_speeds[index]
 		)
 
-	return Vector2(maximum_radius, maximum_speed)
+	return Vector2(
+		maximum_radius,
+		maximum_speed
+	)
 
 
 func _prepare_scratch(required_size: int) -> void:
@@ -442,6 +501,10 @@ func _prepare_scratch(required_size: int) -> void:
 		_planned_headings.resize(required_size)
 		_planned_speeds.resize(required_size)
 		_planned_arrivals.resize(required_size)
+
+		_cached_steering_directions.resize(required_size)
+		_cached_targets.resize(required_size)
+		_cached_steering_valid.resize(required_size)
 
 	if _neighbor_indices.size() != MAXIMUM_NEIGHBORS:
 		_neighbor_indices.resize(MAXIMUM_NEIGHBORS)

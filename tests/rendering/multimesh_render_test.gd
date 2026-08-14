@@ -259,14 +259,58 @@ func _start_benchmark(
 	)
 
 	var commanded_ids := PackedInt64Array()
+	var commanded_indices := PackedInt32Array()
 
 	for index: int in range(_commanded_entity_count):
-		commanded_ids.append(entity_ids[index])
+		var entity_id: int = entity_ids[index]
+
+		commanded_ids.append(entity_id)
+
+		var entity_index: int = (
+			_simulation_world.entities.get_index_if_alive(
+				entity_id
+			)
+		)
+
+		assert(
+			entity_index >= 0,
+			"Every benchmark mover should still be alive."
+		)
+
+		commanded_indices.append(entity_index)
+
+	var planner := FormationMovePlanner.new()
+
+	var benchmark_destination: Vector3 = (
+		_battlefield_center + MOVE_DESTINATION_OFFSET
+	)
+
+	var compact_slots: PackedVector3Array = (
+		planner.create_compact_slots(
+			_simulation_world.entities,
+			commanded_indices,
+			benchmark_destination
+		)
+	)
+
+	var assigned_destinations: PackedVector3Array = (
+		planner.assign_slots(
+			_simulation_world.entities,
+			commanded_indices,
+			compact_slots
+		)
+	)
 
 	assert(
-		_simulation_world.issue_move(
+		assigned_destinations.size()
+		== _commanded_entity_count,
+		"Benchmark should create one destination per moving entity."
+	)
+
+	assert(
+		_simulation_world.issue_group_move(
 			commanded_ids,
-			_battlefield_center + MOVE_DESTINATION_OFFSET
+			assigned_destinations
 		) == _commanded_entity_count,
 		"Every selected benchmark entity should accept movement."
 	)
@@ -574,6 +618,7 @@ func _update_metrics() -> void:
 		+ "%d chunk groups | Near %d | Far %d\n"
 		+ "FPS: %.1f | Approx. frame: %.2f ms | Draw calls: %d\n"
 		+ "Last completed simulation tick: %.2f ms\n"
+		+ "  Movement: %.2f ms | Grid rebuild: %.2f ms\n"
 		+ "Last transform upload: %.2f ms (%d instances)\n"
 		+ "Selection: %d units | Last query: %.3f ms\n"
 		+ "Move: %d units | %s | Drawn path: %.1f\n"
@@ -592,6 +637,8 @@ func _update_metrics() -> void:
 		frame_milliseconds,
 		draw_calls,
 		_last_simulation_milliseconds,
+		_simulation_world.last_movement_milliseconds,
+		_simulation_world.last_grid_rebuild_milliseconds,
 		_last_upload_milliseconds,
 		_last_updated_instances,
 		_selected_entity_count,

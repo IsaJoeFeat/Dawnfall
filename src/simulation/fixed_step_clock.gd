@@ -3,7 +3,7 @@ extends RefCounted
 
 
 const DEFAULT_TICKS_PER_SECOND: float = 20.0
-const DEFAULT_MAX_STEPS_PER_FRAME: int = 8
+const DEFAULT_MAX_STEPS_PER_FRAME: int = 1
 
 var tick_seconds: float
 var max_steps_per_frame: int
