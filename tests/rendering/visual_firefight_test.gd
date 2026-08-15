@@ -17,11 +17,17 @@ const TEAM_ONE_OWNER: int = 1
 var _simulation_world := SimulationWorld.new()
 var _renderer: UnitMultiMeshRenderer
 var _camera: RtsCameraController
+var _selection_controller: UnitSelectionController
+var _move_command_controller: UnitMoveCommandController
 var _hud_label: Label
 
 var _metrics_elapsed: float = 0.0
 var _total_shots: int = 0
 var _battle_finished: bool = false
+var _last_focus_order_count: int = 0
+var _attack_mode_active: bool = false
+var _manual_target_entity_id: int = EntityId.INVALID
+var _manual_target_marker: MeshInstance3D
 
 
 func _ready() -> void:
@@ -93,13 +99,17 @@ func _ready() -> void:
 
 	_create_renderer()
 	_create_camera()
+	_create_selection_controller()
+	_create_command_controller()
+	_create_manual_target_marker()
 	_create_hud()
 
 	print(
 		(
 			"VISUAL FIREFIGHT READY | "
 			+ "%d vs %d infantry | "
-			+ "automatic combat enabled"
+			+ "automatic combat enabled | "
+			+ "A = manual attack target"
 		)
 		% [
 			UNITS_PER_TEAM,
@@ -115,6 +125,8 @@ func _process(delta: float) -> void:
 	_renderer.update_lod(
 		_camera.global_position
 	)
+
+	_update_manual_target_marker()
 
 	var completed_steps: int = (
 		_simulation_world.advance(delta)
@@ -132,6 +144,10 @@ func _process(delta: float) -> void:
 
 		if not destroyed_indices.is_empty():
 			_renderer.remove_destroyed_entity_indices(
+				destroyed_indices
+			)
+
+			_selection_controller.remove_destroyed_entity_indices(
 				destroyed_indices
 			)
 
@@ -299,6 +315,185 @@ func _create_camera() -> void:
 	)
 
 
+func _create_selection_controller() -> void:
+	_selection_controller = UnitSelectionController.new()
+	_selection_controller.name = "UnitSelectionController"
+
+	add_child(
+		_selection_controller
+	)
+
+	assert(
+		_selection_controller.configure(
+			_simulation_world,
+			_camera,
+			TEAM_ZERO_OWNER
+		),
+		"Combat selection should configure."
+	)
+
+	_selection_controller.selection_changed.connect(
+		_on_selection_changed
+	)
+
+
+func _create_command_controller() -> void:
+	_move_command_controller = UnitMoveCommandController.new()
+	_move_command_controller.name = "UnitMoveCommandController"
+
+	add_child(
+		_move_command_controller
+	)
+
+	assert(
+		_move_command_controller.configure(
+			_simulation_world,
+			_camera,
+			_selection_controller
+		),
+		"Combat command controller should configure."
+	)
+
+	_move_command_controller.attack_command_issued.connect(
+		_on_attack_command_issued
+	)
+
+	_move_command_controller.command_issued.connect(
+		_on_move_command_issued
+	)
+
+	_move_command_controller.attack_mode_changed.connect(
+		_on_attack_mode_changed
+	)
+
+
+func _on_selection_changed(
+	entity_indices: PackedInt32Array,
+	_elapsed_milliseconds: float
+) -> void:
+	_renderer.set_selected_entity_indices(
+		entity_indices
+	)
+
+	_update_hud()
+
+
+func _on_attack_command_issued(
+	accepted_count: int,
+	target_entity_id: int
+) -> void:
+	_last_focus_order_count = accepted_count
+	_manual_target_entity_id = target_entity_id
+	_update_manual_target_marker()
+	_update_hud()
+
+
+func _on_move_command_issued(
+	_accepted_count: int,
+	_formation: bool,
+	_planning_milliseconds: float,
+	_dispatch_milliseconds: float,
+	_path_length: float
+) -> void:
+	_clear_manual_target_marker()
+	_update_hud()
+
+
+func _on_attack_mode_changed(
+	active: bool
+) -> void:
+	_attack_mode_active = active
+	_update_hud()
+
+
+func _create_manual_target_marker() -> void:
+	_manual_target_marker = MeshInstance3D.new()
+	_manual_target_marker.name = "ManualAttackTargetMarker"
+
+	var marker_mesh := BoxMesh.new()
+
+	marker_mesh.size = Vector3(
+		0.9,
+		0.9,
+		0.9
+	)
+
+	var marker_material := StandardMaterial3D.new()
+
+	marker_material.albedo_color = Color(
+		0.15,
+		1.0,
+		1.0,
+		1.0
+	)
+
+	marker_material.shading_mode = (
+		BaseMaterial3D.SHADING_MODE_UNSHADED
+	)
+
+	marker_mesh.material = marker_material
+	_manual_target_marker.mesh = marker_mesh
+	_manual_target_marker.rotation_degrees = Vector3(
+		35.0,
+		45.0,
+		0.0
+	)
+	_manual_target_marker.cast_shadow = (
+		GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	)
+	_manual_target_marker.visible = false
+
+	add_child(
+		_manual_target_marker
+	)
+
+
+func _update_manual_target_marker() -> void:
+	if _manual_target_marker == null:
+		return
+
+	if not EntityId.is_valid(
+		_manual_target_entity_id
+	):
+		_manual_target_marker.visible = false
+		return
+
+	var target_index: int = (
+		_simulation_world.entities.get_index_if_alive(
+			_manual_target_entity_id
+		)
+	)
+
+	if target_index < 0:
+		_clear_manual_target_marker()
+		return
+
+	var bob_offset: float = (
+		sin(
+			float(Time.get_ticks_msec())
+			/ 180.0
+		)
+		* 0.18
+	)
+
+	_manual_target_marker.position = (
+		_simulation_world.entities.positions[
+			target_index
+		]
+		+ Vector3.UP * (2.2 + bob_offset)
+	)
+
+	_manual_target_marker.rotation.y += 0.05
+	_manual_target_marker.visible = true
+
+
+func _clear_manual_target_marker() -> void:
+	_manual_target_entity_id = EntityId.INVALID
+
+	if _manual_target_marker != null:
+		_manual_target_marker.visible = false
+
+
 func _create_hud() -> void:
 	var canvas := CanvasLayer.new()
 
@@ -315,7 +510,7 @@ func _create_hud() -> void:
 	)
 
 	panel.custom_minimum_size = Vector2(
-		360.0,
+		420.0,
 		0.0
 	)
 
@@ -333,6 +528,9 @@ func _create_hud() -> void:
 
 
 func _update_hud() -> void:
+	if _hud_label == null:
+		return
+
 	var team_zero_alive: int = 0
 	var team_one_alive: int = 0
 
@@ -353,15 +551,49 @@ func _update_hud() -> void:
 			TEAM_ONE_OWNER:
 				team_one_alive += 1
 
+	var selected_count: int = 0
+
+	if _selection_controller != null:
+		selected_count = (
+			_selection_controller.selected_count()
+		)
+
+	var attack_mode_text: String = (
+		"ARMED"
+		if _attack_mode_active
+		else "idle"
+	)
+
+	var focus_target_text: String = "none"
+
+	if (
+		EntityId.is_valid(
+			_manual_target_entity_id
+		)
+		and _simulation_world.entities.is_alive(
+			_manual_target_entity_id
+		)
+	):
+		focus_target_text = "ACTIVE — cyan marker"
+
 	_hud_label.text = (
-		"DAWNFALL — FIRST VISUAL FIREFIGHT\n"
+		"DAWNFALL — INTERACTIVE FIREFIGHT\n"
 		+ "Blue Army: %d / %d\n"
 		+ "Red Army: %d / %d\n"
 		+ "Total Alive: %d\n"
 		+ "Total Shots: %d\n"
 		+ "Combat: %.3f ms\n"
 		+ "Rendered: %d\n"
-		+ "FPS: %.1f\n\n"
+		+ "FPS: %.1f\n"
+		+ "Selected: %d\n"
+		+ "Attack command: %s\n"
+		+ "Manual focus target: %s\n"
+		+ "Last focus order: %d units\n\n"
+		+ "Left click/drag: select blue units\n"
+		+ "A, then left click red unit: manual target\n"
+		+ "Right click ground: move\n"
+		+ "Right click drag: line formation\n"
+		+ "Esc: cancel attack command\n"
 		+ "Mouse wheel: zoom\n"
 		+ "MMB: pan\n"
 		+ "ALT + MMB: rotate"
@@ -375,6 +607,10 @@ func _update_hud() -> void:
 		_simulation_world.last_combat_milliseconds,
 		_renderer.rendered_instance_count(),
 		Engine.get_frames_per_second(),
+		selected_count,
+		attack_mode_text,
+		focus_target_text,
+		_last_focus_order_count,
 	]
 
 

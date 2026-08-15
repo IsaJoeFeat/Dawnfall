@@ -35,6 +35,7 @@ var _shared_routes: Dictionary = {}
 var _shared_route_remaining_counts: Dictionary = {}
 var _next_shared_route_id: int = 1
 var _automatic_targets_by_entity: Dictionary = {}
+var _manual_attack_targets_by_entity: Dictionary = {}
 
 var _entity_route_ids := PackedInt32Array()
 var _entity_route_waypoint_indices := PackedInt32Array()
@@ -170,6 +171,10 @@ func issue_move(
 
 		if entity_index < 0:
 			continue
+
+		_manual_attack_targets_by_entity.erase(
+			entity_id
+		)
 
 		_cancel_route_for_index(
 			entity_index
@@ -336,6 +341,10 @@ func issue_group_move(
 		):
 			continue
 
+		_manual_attack_targets_by_entity.erase(
+			entity_id
+		)
+
 		_entity_route_ids[
 			entity_index
 		] = route_id
@@ -476,6 +485,125 @@ func acquire_target_for_weapon(
 		_team_ids_by_owner
 	)
 
+func issue_attack_target(
+	entity_ids: PackedInt64Array,
+	target_entity_id: int
+) -> int:
+	var target_index: int = (
+		entities.get_index_if_alive(
+			target_entity_id
+		)
+	)
+
+	if target_index < 0:
+		return 0
+
+	var target_owner_id: int = (
+		entities.owner_ids[
+			target_index
+		]
+	)
+
+	var target_team_id: int = (
+		get_owner_team(
+			target_owner_id
+		)
+	)
+
+	if target_team_id < 0:
+		return 0
+
+	var accepted_count: int = 0
+
+	for entity_id: int in entity_ids:
+		var attacker_index: int = (
+			entities.get_index_if_alive(
+				entity_id
+			)
+		)
+
+		if attacker_index < 0:
+			continue
+
+		if entity_id == target_entity_id:
+			continue
+
+		var attacker_owner_id: int = (
+			entities.owner_ids[
+				attacker_index
+			]
+		)
+
+		var attacker_team_id: int = (
+			get_owner_team(
+				attacker_owner_id
+			)
+		)
+
+		if (
+			attacker_team_id < 0
+			or attacker_team_id
+			== target_team_id
+		):
+			continue
+
+		var definition_index: int = (
+			entities.definition_indices[
+				attacker_index
+			]
+		)
+
+		if (
+			definition_index < 0
+			or definition_index
+			>= _unit_definitions_by_index.size()
+		):
+			continue
+
+		var definition: UnitDefinition = (
+			_unit_definitions_by_index[
+				definition_index
+			]
+		)
+
+		if definition == null:
+			continue
+
+		var has_compatible_weapon: bool = false
+
+		for weapon: WeaponDefinition in definition.weapons:
+			if _weapon_can_target_entity(
+				target_entity_id,
+				weapon
+			):
+				has_compatible_weapon = true
+				break
+
+		if not has_compatible_weapon:
+			continue
+
+		# Explicit attack intent replaces the current
+		# movement order for this initial proof.
+		_cancel_route_for_index(
+			attacker_index
+		)
+
+		entities.clear_move_target_by_index(
+			attacker_index
+		)
+
+		_automatic_targets_by_entity.erase(
+			entity_id
+		)
+
+		_manual_attack_targets_by_entity[
+			entity_id
+		] = target_entity_id
+
+		accepted_count += 1
+
+	return accepted_count
+
 func fire_weapon(
 	attacker_entity_id: int,
 	target_entity_id: int,
@@ -584,12 +712,16 @@ func apply_damage(
 	_destroyed_entity_indices.append(
 		entity_index
 	)
-	
+
 	combat_system.forget_entity(
 		entity_id
 	)
 
 	_automatic_targets_by_entity.erase(
+		entity_id
+	)
+
+	_manual_attack_targets_by_entity.erase(
 		entity_id
 	)
 
@@ -722,6 +854,30 @@ func _run_automatic_combat() -> void:
 			)
 		)
 
+		var manual_target_id: int = (
+			EntityId.INVALID
+		)
+
+		if _manual_attack_targets_by_entity.has(
+			attacker_entity_id
+		):
+			manual_target_id = int(
+				_manual_attack_targets_by_entity[
+					attacker_entity_id
+				]
+			)
+
+			if not entities.is_alive(
+				manual_target_id
+			):
+				_manual_attack_targets_by_entity.erase(
+					attacker_entity_id
+				)
+
+				manual_target_id = (
+					EntityId.INVALID
+				)
+
 		var target_ids := PackedInt64Array()
 
 		if _automatic_targets_by_entity.has(
@@ -755,6 +911,34 @@ func _run_automatic_combat() -> void:
 					weapon_slot
 				]
 			)
+
+			if (
+				EntityId.is_valid(
+					manual_target_id
+				)
+				and _weapon_can_target_entity(
+					manual_target_id,
+					weapon
+				)
+			):
+				var manual_fire_result: int = (
+					fire_weapon(
+						attacker_entity_id,
+						manual_target_id,
+						weapon_slot
+					)
+				)
+
+				if (
+					manual_fire_result
+					== CombatSystem.FireResult.FIRED
+				):
+					last_auto_fire_count += 1
+
+				# Explicit player target intent overrides
+				# automatic target choice for this weapon,
+				# including while reloading or out of range.
+				continue
 
 			if weapon == null:
 				target_ids[
@@ -923,7 +1107,7 @@ func _simulate_tick(
 		)
 		/ 1000.0
 	)
-	
+
 	if automatic_combat_enabled:
 		var combat_start: int = (
 			Time.get_ticks_usec()
@@ -1098,6 +1282,49 @@ func _prepare_route_state(
 		_entity_route_final_destinations[
 			index
 		] = Vector3.ZERO
+
+func _weapon_can_target_entity(
+	target_entity_id: int,
+	weapon: WeaponDefinition
+) -> bool:
+	if weapon == null:
+		return false
+
+	var target_index: int = (
+		entities.get_index_if_alive(
+			target_entity_id
+		)
+	)
+
+	if target_index < 0:
+		return false
+
+	var definition_index: int = (
+		entities.definition_indices[
+			target_index
+		]
+	)
+
+	if (
+		definition_index < 0
+		or definition_index
+		>= _unit_definitions_by_index.size()
+	):
+		return false
+
+	var target_definition: UnitDefinition = (
+		_unit_definitions_by_index[
+			definition_index
+		]
+	)
+
+	if target_definition == null:
+		return false
+
+	return (
+		weapon.valid_target_categories
+		& target_definition.target_categories
+	) != 0
 
 func _register_unit_definition(
 	definition_index: int,

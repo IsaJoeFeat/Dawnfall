@@ -10,8 +10,19 @@ signal command_issued(
 	path_length: float
 )
 
+signal attack_command_issued(
+	accepted_count: int,
+	target_entity_id: int
+)
+
+signal attack_mode_changed(
+	active: bool
+)
+
 
 const DRAG_PIXEL_THRESHOLD: float = 8.0
+const TARGET_CLICK_PIXEL_RADIUS: float = 18.0
+const TARGET_WORLD_QUERY_RADIUS: float = 6.0
 const SAMPLE_PIXEL_SPACING: float = 4.0
 const PREVIEW_INTERVAL_MICROSECONDS: int = 33000
 const GROUND_PLANE := Plane(Vector3.UP, 0.0)
@@ -23,6 +34,7 @@ var _selection_controller: UnitSelectionController
 var _planner := FormationMovePlanner.new()
 
 var _drawing: bool = false
+var _attack_command_armed: bool = false
 var _drag_start_screen := Vector2.ZERO
 var _last_sample_screen := Vector2.ZERO
 var _command_entity_indices := PackedInt32Array()
@@ -72,6 +84,68 @@ func configure(
 	return true
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+
+		if (
+			not key_event.pressed
+			or key_event.echo
+		):
+			return
+
+		if key_event.keycode == KEY_A:
+			if (
+				_selection_controller == null
+				or _selection_controller.selected_count() <= 0
+			):
+				return
+
+			_cancel_command()
+			_set_attack_command_armed(true)
+			get_viewport().set_input_as_handled()
+			return
+
+		if (
+			key_event.keycode == KEY_ESCAPE
+			and _attack_command_armed
+		):
+			_set_attack_command_armed(false)
+			get_viewport().set_input_as_handled()
+			return
+
+	if not _attack_command_armed:
+		return
+
+	if event is not InputEventMouseButton:
+		return
+
+	var mouse_button := event as InputEventMouseButton
+
+	# Right click cancels attack mode, then falls through
+	# to the normal right-click movement handler.
+	if (
+		mouse_button.button_index == MOUSE_BUTTON_RIGHT
+		and mouse_button.pressed
+	):
+		_set_attack_command_armed(false)
+		return
+
+	if mouse_button.button_index != MOUSE_BUTTON_LEFT:
+		return
+
+	# The attack command is issued on press. Consume the
+	# click so the selection controller does not treat it
+	# as a new selection click.
+	if mouse_button.pressed:
+		if _try_issue_attack_command(
+			mouse_button.position
+		):
+			_set_attack_command_armed(false)
+
+		get_viewport().set_input_as_handled()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if (
 		_simulation_world == null
@@ -87,7 +161,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 
 		if mouse_button.pressed:
-			if _begin_command(mouse_button.position):
+			if _begin_command(
+				mouse_button.position
+			):
 				get_viewport().set_input_as_handled()
 		else:
 			if not _drawing:
@@ -104,6 +180,183 @@ func _unhandled_input(event: InputEvent) -> void:
 		_continue_command(mouse_motion.position)
 		get_viewport().set_input_as_handled()
 
+
+func attack_command_armed() -> bool:
+	return _attack_command_armed
+
+
+func _set_attack_command_armed(
+	active: bool
+) -> void:
+	if _attack_command_armed == active:
+		return
+
+	_attack_command_armed = active
+	attack_mode_changed.emit(
+		_attack_command_armed
+	)
+
+
+func _try_issue_attack_command(
+	screen_position: Vector2
+) -> bool:
+	var selected: PackedInt32Array = (
+		_selection_controller
+		.selected_entity_indices()
+	)
+
+	if selected.is_empty():
+		return false
+
+	var ground_hit: Variant = (
+		_screen_to_ground(
+			screen_position
+		)
+	)
+
+	if ground_hit == null:
+		return false
+
+	var ground_position: Vector3 = ground_hit
+
+	var candidates: PackedInt32Array = (
+		_simulation_world.query_entities_in_radius(
+			ground_position,
+			TARGET_WORLD_QUERY_RADIUS,
+			SpatialGrid.ANY_OWNER
+		)
+	)
+
+	var selected_team_id: int = -1
+
+	for selected_index: int in selected:
+		if not _simulation_world.entities.is_index_alive(
+			selected_index
+		):
+			continue
+
+		var selected_owner_id: int = (
+			_simulation_world.entities.owner_ids[
+				selected_index
+			]
+		)
+
+		selected_team_id = (
+			_simulation_world.get_owner_team(
+				selected_owner_id
+			)
+		)
+
+		if selected_team_id >= 0:
+			break
+
+	if selected_team_id < 0:
+		return false
+
+	var closest_index: int = -1
+	var closest_distance_squared: float = (
+		TARGET_CLICK_PIXEL_RADIUS
+		* TARGET_CLICK_PIXEL_RADIUS
+	)
+
+	for entity_index: int in candidates:
+		var candidate_owner_id: int = (
+			_simulation_world.entities.owner_ids[
+				entity_index
+			]
+		)
+
+		var candidate_team_id: int = (
+			_simulation_world.get_owner_team(
+				candidate_owner_id
+			)
+		)
+
+		if (
+			candidate_team_id < 0
+			or candidate_team_id == selected_team_id
+		):
+			continue
+
+		var world_position: Vector3 = (
+			_simulation_world.entities.positions[
+				entity_index
+			]
+		)
+
+		if _camera.is_position_behind(
+			world_position
+		):
+			continue
+
+		var candidate_screen_position: Vector2 = (
+			_camera.unproject_position(
+				world_position
+			)
+		)
+
+		var distance_squared: float = (
+			screen_position.distance_squared_to(
+				candidate_screen_position
+			)
+		)
+
+		if (
+			distance_squared
+			< closest_distance_squared
+		):
+			closest_distance_squared = (
+				distance_squared
+			)
+
+			closest_index = entity_index
+
+	if closest_index < 0:
+		return false
+
+	var target_entity_id: int = (
+		_simulation_world.entities.get_id_by_index(
+			closest_index
+		)
+	)
+
+	if not EntityId.is_valid(
+		target_entity_id
+	):
+		return false
+
+	var entity_ids := PackedInt64Array()
+
+	for entity_index: int in selected:
+		var entity_id: int = (
+			_simulation_world.entities.get_id_by_index(
+				entity_index
+			)
+		)
+
+		if EntityId.is_valid(
+			entity_id
+		):
+			entity_ids.append(
+				entity_id
+			)
+
+	var accepted_count: int = (
+		_simulation_world.issue_attack_target(
+			entity_ids,
+			target_entity_id
+		)
+	)
+
+	if accepted_count <= 0:
+		return false
+
+	attack_command_issued.emit(
+		accepted_count,
+		target_entity_id
+	)
+
+	return true
 
 func _begin_command(screen_position: Vector2) -> bool:
 	var selected: PackedInt32Array = (
@@ -180,9 +433,9 @@ func _finish_command(screen_position: Vector2) -> void:
 		_drag_start_screen.distance_to(screen_position)
 	)
 	var formation: bool = (
-	_command_entity_indices.size() > 1
-	and screen_drag_distance >= DRAG_PIXEL_THRESHOLD
-)
+		_command_entity_indices.size() > 1
+		and screen_drag_distance >= DRAG_PIXEL_THRESHOLD
+	)
 
 	var planning_start: int = Time.get_ticks_usec()
 	var destinations := PackedVector3Array()
