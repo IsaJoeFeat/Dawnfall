@@ -11,6 +11,7 @@ var movement_system := MovementSystem.new()
 var combat_system := CombatSystem.new()
 var spatial_grid := SpatialGrid.new(8.0)
 var navigation_grid: NavigationGrid
+var targeting_system := TargetingSystem.new()
 
 var shared_route_request_count: int = 0
 var last_shared_route := PackedVector3Array()
@@ -32,6 +33,7 @@ var _entity_route_waypoint_indices := PackedInt32Array()
 var _entity_route_final_destinations := PackedVector3Array()
 
 var _unit_definitions_by_index: Array[UnitDefinition] = []
+var _team_ids_by_owner := PackedInt32Array()
 
 
 func spawn_unit(
@@ -352,6 +354,119 @@ func issue_group_move(
 	] = accepted_count
 
 	return accepted_count
+
+func set_owner_team(
+	owner_id: int,
+	team_id: int
+) -> bool:
+	if not DawnfallLog.require_valid(
+		owner_id >= 0,
+		"Owner ID cannot be negative.",
+		&"SimulationWorld"
+	):
+		return false
+
+	if not DawnfallLog.require_valid(
+		team_id >= 0,
+		"Team ID cannot be negative.",
+		&"SimulationWorld"
+	):
+		return false
+
+	var previous_size: int = (
+		_team_ids_by_owner.size()
+	)
+
+	if previous_size <= owner_id:
+		_team_ids_by_owner.resize(
+			owner_id + 1
+		)
+
+		for index: int in range(
+			previous_size,
+			_team_ids_by_owner.size()
+		):
+			_team_ids_by_owner[
+				index
+			] = -1
+
+	_team_ids_by_owner[
+		owner_id
+	] = team_id
+
+	return true
+
+
+func get_owner_team(
+	owner_id: int
+) -> int:
+	if (
+		owner_id < 0
+		or owner_id
+		>= _team_ids_by_owner.size()
+	):
+		return -1
+
+	return _team_ids_by_owner[
+		owner_id
+	]
+
+func acquire_target_for_weapon(
+	attacker_entity_id: int,
+	weapon_slot: int
+) -> int:
+	var attacker_index: int = (
+		entities.get_index_if_alive(
+			attacker_entity_id
+		)
+	)
+
+	if attacker_index < 0:
+		return EntityId.INVALID
+
+	var definition_index: int = (
+		entities.definition_indices[
+			attacker_index
+		]
+	)
+
+	if (
+		definition_index < 0
+		or definition_index
+		>= _unit_definitions_by_index.size()
+	):
+		return EntityId.INVALID
+
+	var unit_definition: UnitDefinition = (
+		_unit_definitions_by_index[
+			definition_index
+		]
+	)
+
+	if unit_definition == null:
+		return EntityId.INVALID
+
+	if (
+		weapon_slot < 0
+		or weapon_slot
+		>= unit_definition.weapons.size()
+	):
+		return EntityId.INVALID
+
+	var weapon: WeaponDefinition = (
+		unit_definition.weapons[
+			weapon_slot
+		]
+	)
+
+	return targeting_system.find_nearest_valid_target(
+		entities,
+		spatial_grid,
+		attacker_entity_id,
+		weapon,
+		_unit_definitions_by_index,
+		_team_ids_by_owner
+	)
 
 func fire_weapon(
 	attacker_entity_id: int,

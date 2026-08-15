@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b6cmlcchpmage"]
+
+[ext_resource type="Script" uid="uid://c5gkl2vithhco" path="res://tests/simulation/target_acquisition_test.gd" id="1_2tjbg"]
+
+[node name="TargetAcquisitionTest" type="Node3D" unique_id=1327696732]
+script = ExtResource("1_2tjbg")
