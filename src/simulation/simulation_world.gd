@@ -3,6 +3,7 @@ extends RefCounted
 
 
 const NO_SHARED_ROUTE: int = -1
+const AUTO_TARGET_REFRESH_PHASES: int = 10
 
 
 var entities := EntityStore.new()
@@ -19,6 +20,12 @@ var last_shared_route := PackedVector3Array()
 var last_movement_milliseconds: float = 0.0
 var last_grid_rebuild_milliseconds: float = 0.0
 
+var automatic_combat_enabled: bool = false
+
+var last_combat_milliseconds: float = 0.0
+var last_auto_target_acquisition_count: int = 0
+var last_auto_fire_count: int = 0
+
 
 var _changed_transform_indices := PackedInt32Array()
 var _changed_transform_lookup: Dictionary = {}
@@ -27,6 +34,7 @@ var _destroyed_entity_indices := PackedInt32Array()
 var _shared_routes: Dictionary = {}
 var _shared_route_remaining_counts: Dictionary = {}
 var _next_shared_route_id: int = 1
+var _automatic_targets_by_entity: Dictionary = {}
 
 var _entity_route_ids := PackedInt32Array()
 var _entity_route_waypoint_indices := PackedInt32Array()
@@ -580,7 +588,11 @@ func apply_damage(
 	combat_system.forget_entity(
 		entity_id
 	)
-	
+
+	_automatic_targets_by_entity.erase(
+		entity_id
+	)
+
 	entities.destroy_entity(
 		entity_id
 	)
@@ -662,6 +674,197 @@ func consume_destroyed_entity_indices() -> PackedInt32Array:
 
 	return destroyed_indices
 
+func _run_automatic_combat() -> void:
+	last_auto_target_acquisition_count = 0
+	last_auto_fire_count = 0
+
+	var acquisition_phase: int = (
+		(clock.tick_count - 1)
+		% AUTO_TARGET_REFRESH_PHASES
+	)
+
+	for entity_index: int in range(
+		entities.capacity()
+	):
+		if not entities.is_index_alive(
+			entity_index
+		):
+			continue
+
+		var definition_index: int = (
+			entities.definition_indices[
+				entity_index
+			]
+		)
+
+		if (
+			definition_index < 0
+			or definition_index
+			>= _unit_definitions_by_index.size()
+		):
+			continue
+
+		var unit_definition: UnitDefinition = (
+			_unit_definitions_by_index[
+				definition_index
+			]
+		)
+
+		if (
+			unit_definition == null
+			or unit_definition.weapons.is_empty()
+		):
+			continue
+
+		var attacker_entity_id: int = (
+			entities.get_id_by_index(
+				entity_index
+			)
+		)
+
+		var target_ids := PackedInt64Array()
+
+		if _automatic_targets_by_entity.has(
+			attacker_entity_id
+		):
+			target_ids = (
+				_automatic_targets_by_entity[
+					attacker_entity_id
+				]
+			)
+
+		if (
+			target_ids.size()
+			< unit_definition.weapons.size()
+		):
+			target_ids.resize(
+				unit_definition.weapons.size()
+			)
+
+		var should_acquire: bool = (
+			entity_index
+			% AUTO_TARGET_REFRESH_PHASES
+			== acquisition_phase
+		)
+
+		for weapon_slot: int in range(
+			unit_definition.weapons.size()
+		):
+			var weapon: WeaponDefinition = (
+				unit_definition.weapons[
+					weapon_slot
+				]
+			)
+
+			if weapon == null:
+				target_ids[
+					weapon_slot
+				] = EntityId.INVALID
+				continue
+
+			# Physical projectile weapons enter later.
+			# B4 only automates the hitscan path proven in B2.
+			if (
+				weapon.delivery_type
+				!= WeaponDefinition.DeliveryType.HITSCAN
+			):
+				target_ids[
+					weapon_slot
+				] = EntityId.INVALID
+				continue
+
+			var target_entity_id: int = (
+				target_ids[
+					weapon_slot
+				]
+			)
+
+			# Existing targets are cheap: try to keep using them.
+			if EntityId.is_valid(
+				target_entity_id
+			):
+				var fire_result: int = (
+					fire_weapon(
+						attacker_entity_id,
+						target_entity_id,
+						weapon_slot
+					)
+				)
+
+				if (
+					fire_result
+					== CombatSystem.FireResult.FIRED
+				):
+					last_auto_fire_count += 1
+					continue
+
+				if (
+					fire_result
+					== CombatSystem.FireResult.RELOADING
+				):
+					continue
+
+				# Dead, invalid, or out of range:
+				# release it and search again later.
+				target_ids[
+					weapon_slot
+				] = EntityId.INVALID
+
+			if not should_acquire:
+				continue
+
+			var acquired_target: int = (
+				acquire_target_for_weapon(
+					attacker_entity_id,
+					weapon_slot
+				)
+			)
+
+			if not EntityId.is_valid(
+				acquired_target
+			):
+				continue
+
+			target_ids[
+				weapon_slot
+			] = acquired_target
+
+			last_auto_target_acquisition_count += 1
+
+			# A newly acquired target may be fired upon
+			# immediately instead of waiting another tick.
+			var acquired_fire_result: int = (
+				fire_weapon(
+					attacker_entity_id,
+					acquired_target,
+					weapon_slot
+				)
+			)
+
+			if (
+				acquired_fire_result
+				== CombatSystem.FireResult.FIRED
+			):
+				last_auto_fire_count += 1
+
+		var has_target: bool = false
+
+		for target_entity_id: int in target_ids:
+			if EntityId.is_valid(
+				target_entity_id
+			):
+				has_target = true
+				break
+
+		if has_target:
+			_automatic_targets_by_entity[
+				attacker_entity_id
+			] = target_ids
+		else:
+			_automatic_targets_by_entity.erase(
+				attacker_entity_id
+			)
+
 func _simulate_tick(
 	delta_seconds: float
 ) -> void:
@@ -720,6 +923,25 @@ func _simulate_tick(
 		)
 		/ 1000.0
 	)
+	
+	if automatic_combat_enabled:
+		var combat_start: int = (
+			Time.get_ticks_usec()
+		)
+
+		_run_automatic_combat()
+
+		last_combat_milliseconds = (
+			float(
+				Time.get_ticks_usec()
+				- combat_start
+			)
+			/ 1000.0
+		)
+	else:
+		last_combat_milliseconds = 0.0
+		last_auto_target_acquisition_count = 0
+		last_auto_fire_count = 0
 
 
 func _advance_shared_route_followers() -> void:

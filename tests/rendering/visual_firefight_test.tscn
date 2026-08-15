@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://biuc6h3fhpoig"]
+
+[ext_resource type="Script" uid="uid://c55r25eycs7gj" path="res://tests/rendering/visual_firefight_test.gd" id="1_tmrap"]
+
+[node name="VisualFirefightTest" type="Node3D" unique_id=1306926982]
+script = ExtResource("1_tmrap")
