@@ -595,6 +595,20 @@ func _process(
 		)
 	)
 
+	var destroyed_entity_indices: PackedInt32Array = (
+		_simulation_world
+		.consume_destroyed_entity_indices()
+	)
+
+	if not destroyed_entity_indices.is_empty():
+		_renderer.remove_destroyed_entity_indices(
+			destroyed_entity_indices
+		)
+
+		_selection_controller.remove_destroyed_entity_indices(
+			destroyed_entity_indices
+		)
+
 	var measured_simulation_milliseconds: float = (
 		float(
 			Time.get_ticks_usec()

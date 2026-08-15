@@ -8,6 +8,7 @@ const NO_SHARED_ROUTE: int = -1
 var entities := EntityStore.new()
 var clock := FixedStepClock.new()
 var movement_system := MovementSystem.new()
+var combat_system := CombatSystem.new()
 var spatial_grid := SpatialGrid.new(8.0)
 var navigation_grid: NavigationGrid
 
@@ -20,6 +21,7 @@ var last_grid_rebuild_milliseconds: float = 0.0
 
 var _changed_transform_indices := PackedInt32Array()
 var _changed_transform_lookup: Dictionary = {}
+var _destroyed_entity_indices := PackedInt32Array()
 
 var _shared_routes: Dictionary = {}
 var _shared_route_remaining_counts: Dictionary = {}
@@ -344,6 +346,46 @@ func issue_group_move(
 
 	return accepted_count
 
+func apply_damage(
+	entity_id: int,
+	damage: float
+) -> int:
+	var damage_result: int = (
+		combat_system.apply_damage(
+			entities,
+			entity_id,
+			damage
+		)
+	)
+
+	if (
+		damage_result
+		!= CombatSystem.DamageResult.DESTROYED
+	):
+		return damage_result
+
+	var entity_index: int = (
+		entities.get_index_if_alive(
+			entity_id
+		)
+	)
+
+	if entity_index < 0:
+		return damage_result
+
+	_cancel_route_for_index(
+		entity_index
+	)
+
+	_destroyed_entity_indices.append(
+		entity_index
+	)
+
+	entities.destroy_entity(
+		entity_id
+	)
+
+	return damage_result
 
 func rebuild_spatial_grid() -> void:
 	spatial_grid.rebuild(
@@ -409,6 +451,16 @@ func consume_changed_transform_indices() -> PackedInt32Array:
 
 	return changed_indices
 
+func consume_destroyed_entity_indices() -> PackedInt32Array:
+	var destroyed_indices: PackedInt32Array = (
+		_destroyed_entity_indices
+	)
+
+	_destroyed_entity_indices = (
+		PackedInt32Array()
+	)
+
+	return destroyed_indices
 
 func _simulate_tick(
 	delta_seconds: float

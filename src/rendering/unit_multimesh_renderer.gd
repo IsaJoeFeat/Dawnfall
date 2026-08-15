@@ -352,6 +352,111 @@ func sync_changed_from_simulation(
 
 	return updated_instances
 
+func remove_destroyed_entity_indices(
+	destroyed_entity_indices: PackedInt32Array
+) -> int:
+	if _simulation_world == null:
+		return 0
+
+	var touched_group_keys: Dictionary = {}
+	var removed_count: int = 0
+
+	for entity_index: int in destroyed_entity_indices:
+		if (
+			entity_index < 0
+			or entity_index >= _entity_groups.size()
+		):
+			continue
+
+		var group: RenderGroup = (
+			_entity_groups[entity_index]
+		)
+
+		if group == null:
+			continue
+
+		var instance_index: int = (
+			_entity_instance_indices[
+				entity_index
+			]
+		)
+
+		if (
+			instance_index < 0
+			or instance_index
+			>= group.entity_indices.size()
+		):
+			continue
+
+		var group_key := _make_group_key(
+			group.definition_index,
+			group.chunk_coordinate
+		)
+
+		var last_instance_index: int = (
+			group.entity_indices.size() - 1
+		)
+
+		if instance_index != last_instance_index:
+			var swapped_entity_index: int = (
+				group.entity_indices[
+					last_instance_index
+				]
+			)
+
+			group.entity_indices[
+				instance_index
+			] = swapped_entity_index
+
+			_entity_instance_indices[
+				swapped_entity_index
+			] = instance_index
+
+		group.entity_indices.resize(
+			last_instance_index
+		)
+
+		_entity_groups[
+			entity_index
+		] = null
+
+		_entity_instance_indices[
+			entity_index
+		] = -1
+
+		_selected_entity_lookup.erase(
+			entity_index
+		)
+
+		_rendered_instance_count -= 1
+		removed_count += 1
+
+		touched_group_keys[
+			group_key
+		] = true
+
+	for group_key_value: Variant in (
+		touched_group_keys.keys()
+	):
+		var group_key: Vector3i = (
+			group_key_value
+		)
+
+		if not _groups.has(
+			group_key
+		):
+			continue
+
+		var group: RenderGroup = (
+			_groups[group_key]
+		)
+
+		_rebuild_render_group(
+			group
+		)
+
+	return removed_count
+
 func set_selected_entity_indices(
 	selected_entity_indices: PackedInt32Array
 ) -> int:

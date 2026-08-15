@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b5fpprkojs5n2"]
+
+[ext_resource type="Script" uid="uid://cekj8eesgv4t" path="res://tests/rendering/combat_death_render_test.gd" id="1_x3k6s"]
+
+[node name="CombatDeathRenderTest" type="Node3D" unique_id=26742292]
+script = ExtResource("1_x3k6s")

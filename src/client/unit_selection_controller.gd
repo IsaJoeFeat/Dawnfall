@@ -70,6 +70,44 @@ func selected_entity_indices() -> PackedInt32Array:
 func selected_count() -> int:
 	return _selected_indices.size()
 
+func remove_destroyed_entity_indices(
+	destroyed_entity_indices: PackedInt32Array
+) -> int:
+	if destroyed_entity_indices.is_empty():
+		return 0
+
+	var destroyed_lookup: Dictionary = {}
+
+	for entity_index: int in destroyed_entity_indices:
+		destroyed_lookup[
+			entity_index
+		] = true
+
+	var filtered_selection := PackedInt32Array()
+	var removed_count: int = 0
+
+	for entity_index: int in _selected_indices:
+		if destroyed_lookup.has(
+			entity_index
+		):
+			removed_count += 1
+			continue
+
+		filtered_selection.append(
+			entity_index
+		)
+
+	if removed_count == 0:
+		return 0
+
+	_selected_indices = filtered_selection
+
+	selection_changed.emit(
+		_selected_indices,
+		0.0
+	)
+
+	return removed_count
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _simulation_world == null or _camera == null:
