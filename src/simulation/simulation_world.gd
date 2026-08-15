@@ -31,6 +31,8 @@ var _entity_route_ids := PackedInt32Array()
 var _entity_route_waypoint_indices := PackedInt32Array()
 var _entity_route_final_destinations := PackedVector3Array()
 
+var _unit_definitions_by_index: Array[UnitDefinition] = []
+
 
 func spawn_unit(
 	definition: UnitDefinition,
@@ -54,6 +56,11 @@ func spawn_unit(
 		return EntityId.INVALID
 
 	var movement: MovementDefinition = definition.movement_profile
+	if not _register_unit_definition(
+		definition_index,
+		definition
+	):
+		return EntityId.INVALID
 
 	var entity_id: int = entities.create_entity(
 		definition_index,
@@ -346,6 +353,80 @@ func issue_group_move(
 
 	return accepted_count
 
+func fire_weapon(
+	attacker_entity_id: int,
+	target_entity_id: int,
+	weapon_slot: int
+) -> int:
+	var attacker_index: int = (
+		entities.get_index_if_alive(
+			attacker_entity_id
+		)
+	)
+
+	if attacker_index < 0:
+		return CombatSystem.FireResult.INVALID
+
+	var definition_index: int = (
+		entities.definition_indices[
+			attacker_index
+		]
+	)
+
+	if (
+		definition_index < 0
+		or definition_index
+		>= _unit_definitions_by_index.size()
+	):
+		return CombatSystem.FireResult.INVALID
+
+	var unit_definition: UnitDefinition = (
+		_unit_definitions_by_index[
+			definition_index
+		]
+	)
+
+	if unit_definition == null:
+		return CombatSystem.FireResult.INVALID
+
+	if (
+		weapon_slot < 0
+		or weapon_slot
+		>= unit_definition.weapons.size()
+	):
+		return CombatSystem.FireResult.INVALID
+
+	var weapon: WeaponDefinition = (
+		unit_definition.weapons[
+			weapon_slot
+		]
+	)
+
+	var fire_result: int = (
+		combat_system.try_fire(
+			entities,
+			attacker_entity_id,
+			target_entity_id,
+			weapon,
+			weapon_slot,
+			clock.tick_count,
+			clock.tick_seconds
+		)
+	)
+
+	if (
+		fire_result
+		!= CombatSystem.FireResult.FIRED
+	):
+		return fire_result
+
+	apply_damage(
+		target_entity_id,
+		weapon.base_damage
+	)
+
+	return fire_result
+
 func apply_damage(
 	entity_id: int,
 	damage: float
@@ -380,7 +461,11 @@ func apply_damage(
 	_destroyed_entity_indices.append(
 		entity_index
 	)
-
+	
+	combat_system.forget_entity(
+		entity_id
+	)
+	
 	entities.destroy_entity(
 		entity_id
 	)
@@ -677,6 +762,47 @@ func _prepare_route_state(
 			index
 		] = Vector3.ZERO
 
+func _register_unit_definition(
+	definition_index: int,
+	definition: UnitDefinition
+) -> bool:
+	if definition_index < 0:
+		return false
+
+	if (
+		_unit_definitions_by_index.size()
+		<= definition_index
+	):
+		_unit_definitions_by_index.resize(
+			definition_index + 1
+		)
+
+	var existing_definition: UnitDefinition = (
+		_unit_definitions_by_index[
+			definition_index
+		]
+	)
+
+	if (
+		existing_definition != null
+		and existing_definition
+		!= definition
+	):
+		return DawnfallLog.require_valid(
+			false,
+			(
+				"Definition index %d is already assigned "
+				+ "to another unit definition."
+			)
+			% definition_index,
+			&"SimulationWorld"
+		)
+
+	_unit_definitions_by_index[
+		definition_index
+	] = definition
+
+	return true
 
 func _cancel_route_for_index(
 	entity_index: int

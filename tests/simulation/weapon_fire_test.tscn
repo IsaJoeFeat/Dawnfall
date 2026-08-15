@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cocsbnvbqncgq"]
+
+[ext_resource type="Script" uid="uid://dd2b7ev7g30oa" path="res://tests/simulation/weapon_fire_test.gd" id="1_axbod"]
+
+[node name="WeaponFireTest" type="Node3D" unique_id=2004674219]
+script = ExtResource("1_axbod")
