@@ -11,10 +11,38 @@ const STANDARD_ENTITY_COUNTS: Array[int] = [
 	4000,
 	8000,
 ]
+
 const GRID_COLUMN_COUNT: int = 100
 const UNIT_SPACING: float = 2.0
 const INITIAL_CAMERA_DISTANCE: float = 180.0
 const MOVE_DESTINATION_OFFSET := Vector3(1.0, 0.0, 61.0)
+
+
+@export var navigation_playground_mode: bool = false
+
+
+const NAVIGATION_ORIGIN := Vector3(
+	-40.0,
+	0.0,
+	-40.0
+)
+
+const NAVIGATION_WORLD_SIZE := Vector2(
+	380.0,
+	240.0
+)
+
+const NAVIGATION_CELL_SIZE: float = 4.0
+
+# Vertical wall at approximately X = 242.
+const NAVIGATION_WALL_COLUMN: int = 70
+
+const NAVIGATION_WALL_START_ROW: int = 5
+const NAVIGATION_WALL_END_ROW: int = 54
+
+# Six navigation cells = 24 meters wide.
+const NAVIGATION_GAP_START_ROW: int = 27
+const NAVIGATION_GAP_END_ROW: int = 32
 
 
 var _simulation_world := SimulationWorld.new()
@@ -51,47 +79,116 @@ func _show_scale_selector() -> void:
 	var canvas := CanvasLayer.new()
 
 	canvas.name = "ScaleSelector"
+	canvas.layer = 100
 	add_child(canvas)
 
 	var panel := PanelContainer.new()
 
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.position = Vector2(-190.0, -145.0)
-	panel.size = Vector2(380.0, 290.0)
+	panel.set_anchors_preset(
+		Control.PRESET_CENTER
+	)
+	panel.position = Vector2(
+		-190.0,
+		-145.0
+	)
+	panel.size = Vector2(
+		380.0,
+		290.0
+	)
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+
 	canvas.add_child(panel)
 
 	var layout := VBoxContainer.new()
 
-	layout.add_theme_constant_override("separation", 10)
+	layout.mouse_filter = Control.MOUSE_FILTER_PASS
+	layout.add_theme_constant_override(
+		"separation",
+		10
+	)
+
 	panel.add_child(layout)
 
 	var title := Label.new()
 
-	title.text = "Dawnfall Standard Scale Benchmark"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if navigation_playground_mode:
+		title.text = "Dawnfall Navigation Playground"
+	else:
+		title.text = "Dawnfall Standard Scale Benchmark"
+
+	title.horizontal_alignment = (
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	layout.add_child(title)
 
 	var instructions := Label.new()
 
-	instructions.text = (
-		"Choose one scale per run. The test commands 25% of units "
-		+ "and keeps density, camera distance, and render settings fixed."
+	if navigation_playground_mode:
+		instructions.text = (
+			"Choose a scale, then manually select and command units. "
+			+ "The battlefield contains an Impassable wall with a choke."
+		)
+	else:
+		instructions.text = (
+			"Choose one scale per run. The test commands 25% of units "
+			+ "and keeps density, camera distance, and render settings fixed."
+		)
+
+	instructions.autowrap_mode = (
+		TextServer.AUTOWRAP_WORD_SMART
 	)
-	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	instructions.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	instructions.horizontal_alignment = (
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	instructions.mouse_filter = (
+		Control.MOUSE_FILTER_IGNORE
+	)
+
 	layout.add_child(instructions)
 
 	for entity_count: int in STANDARD_ENTITY_COUNTS:
 		var button := Button.new()
 
-		button.text = "%s units" % _format_entity_count(
-			entity_count
+		button.text = (
+			"%s units"
+			% _format_entity_count(
+				entity_count
+			)
 		)
-		button.custom_minimum_size = Vector2(0.0, 36.0)
+
+		button.custom_minimum_size = Vector2(
+			0.0,
+			36.0
+		)
+
+		button.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+		)
+
 		button.pressed.connect(
-			_start_benchmark.bind(entity_count, canvas)
+			_on_scale_button_pressed.bind(
+				entity_count,
+				canvas
+			)
 		)
+
 		layout.add_child(button)
+
+func _on_scale_button_pressed(
+	entity_count: int,
+	selector: CanvasLayer
+) -> void:
+	print(
+		"Scale button pressed: %d"
+		% entity_count
+	)
+
+	_start_benchmark(
+		entity_count,
+		selector
+	)
 
 
 func _start_benchmark(
@@ -101,54 +198,89 @@ func _start_benchmark(
 	if _benchmark_started:
 		return
 
-	if not STANDARD_ENTITY_COUNTS.has(requested_entity_count):
-		push_error("Unsupported standard benchmark entity count.")
+	if not STANDARD_ENTITY_COUNTS.has(
+		requested_entity_count
+	):
+		push_error(
+			"Unsupported standard benchmark entity count."
+		)
 		return
 
 	selector.queue_free()
 
 	_entity_count = requested_entity_count
-	_commanded_entity_count = maxi(
-		1,
-		floori(float(_entity_count) * 0.25)
-	)
+
+	if navigation_playground_mode:
+		_commanded_entity_count = 0
+	else:
+		_commanded_entity_count = maxi(
+			1,
+			floori(
+				float(_entity_count) * 0.25
+			)
+		)
 
 	var row_count: int = ceili(
-		float(_entity_count) / float(GRID_COLUMN_COUNT)
+		float(_entity_count)
+		/ float(GRID_COLUMN_COUNT)
 	)
+
 	_battlefield_center = Vector3(
-		float(GRID_COLUMN_COUNT - 1) * UNIT_SPACING * 0.5,
+		float(GRID_COLUMN_COUNT - 1)
+		* UNIT_SPACING
+		* 0.5,
 		0.0,
-		float(row_count - 1) * UNIT_SPACING * 0.5
+		float(row_count - 1)
+		* UNIT_SPACING
+		* 0.5
 	)
 
 	var registry := DefinitionRegistry.new()
 
-	if not CONTENT_CATALOG.load_into(registry):
+	if not CONTENT_CATALOG.load_into(
+		registry
+	):
 		get_tree().quit(1)
 		return
 
-	var infantry: UnitDefinition = registry.get_unit(
-		&"unit_test_placeholder_infantry"
+	var infantry: UnitDefinition = (
+		registry.get_unit(
+			&"unit_test_placeholder_infantry"
+		)
 	)
-	var tank: UnitDefinition = registry.get_unit(
-		&"unit_test_placeholder_tank"
+
+	var tank: UnitDefinition = (
+		registry.get_unit(
+			&"unit_test_placeholder_tank"
+		)
 	)
 
 	if infantry == null or tank == null:
-		push_error("Required rendering definitions were not loaded.")
+		push_error(
+			"Required rendering definitions were not loaded."
+		)
 		get_tree().quit(1)
 		return
 
 	_create_environment()
 	_create_ground()
+
+	if navigation_playground_mode:
+		_configure_navigation_playground()
+		_create_navigation_obstacle_preview()
+
 	_create_camera()
 	_create_hud()
 
 	var entity_ids := PackedInt64Array()
-	var spawn_start: int = Time.get_ticks_usec()
 
-	for index: int in range(_entity_count):
+	var spawn_start: int = (
+		Time.get_ticks_usec()
+	)
+
+	for index: int in range(
+		_entity_count
+	):
 		var definition: UnitDefinition
 		var definition_index: int
 
@@ -159,30 +291,55 @@ func _start_benchmark(
 			definition = tank
 			definition_index = 1
 
-		var column: int = index % GRID_COLUMN_COUNT
-		var row: int = floori(
-			float(index) / float(GRID_COLUMN_COUNT)
+		var column: int = (
+			index % GRID_COLUMN_COUNT
 		)
-		var entity_id: int = _simulation_world.spawn_unit(
-			definition,
-			definition_index,
-			index % 4,
-			Vector3(
-				float(column) * UNIT_SPACING,
-				0.0,
-				float(row) * UNIT_SPACING
+
+		var row: int = floori(
+			float(index)
+			/ float(GRID_COLUMN_COUNT)
+		)
+
+		var spawn_position := Vector3(
+			float(column) * UNIT_SPACING,
+			0.0,
+			float(row) * UNIT_SPACING
+		)
+
+		if navigation_playground_mode:
+			assert(
+				_simulation_world.navigation_grid
+				.is_world_position_traversable(
+					spawn_position
+				),
+				"Navigation playground unit must spawn on traversable terrain."
+			)
+
+		var entity_id: int = (
+			_simulation_world.spawn_unit(
+				definition,
+				definition_index,
+				index % 4,
+				spawn_position
 			)
 		)
 
 		assert(
-			EntityId.is_valid(entity_id),
+			EntityId.is_valid(
+				entity_id
+			),
 			"Every rendering-test entity should spawn."
 		)
 
-		entity_ids.append(entity_id)
+		entity_ids.append(
+			entity_id
+		)
 
 	var spawn_milliseconds: float = (
-		float(Time.get_ticks_usec() - spawn_start)
+		float(
+			Time.get_ticks_usec()
+			- spawn_start
+		)
 		/ 1000.0
 	)
 
@@ -193,24 +350,55 @@ func _start_benchmark(
 	_renderer.render_chunk_size = 32.0
 	add_child(_renderer)
 
-	var near_material := _create_near_unit_material()
-	var far_material := _create_far_unit_material()
+	var near_material := (
+		_create_near_unit_material()
+	)
+
+	var far_material := (
+		_create_far_unit_material()
+	)
 
 	var infantry_near_mesh := BoxMesh.new()
-	infantry_near_mesh.size = Vector3(0.7, 1.4, 0.7)
-	infantry_near_mesh.material = near_material
+
+	infantry_near_mesh.size = Vector3(
+		0.7,
+		1.4,
+		0.7
+	)
+	infantry_near_mesh.material = (
+		near_material
+	)
 
 	var infantry_far_mesh := PlaneMesh.new()
-	infantry_far_mesh.size = Vector2(0.35, 0.35)
-	infantry_far_mesh.material = far_material
+
+	infantry_far_mesh.size = Vector2(
+		0.35,
+		0.35
+	)
+	infantry_far_mesh.material = (
+		far_material
+	)
 
 	var tank_near_mesh := BoxMesh.new()
-	tank_near_mesh.size = Vector3(1.4, 0.7, 1.6)
-	tank_near_mesh.material = near_material
+
+	tank_near_mesh.size = Vector3(
+		1.4,
+		0.7,
+		1.6
+	)
+	tank_near_mesh.material = (
+		near_material
+	)
 
 	var tank_far_mesh := PlaneMesh.new()
-	tank_far_mesh.size = Vector2(0.75, 1.0)
-	tank_far_mesh.material = far_material
+
+	tank_far_mesh.size = Vector2(
+		0.75,
+		1.0
+	)
+	tank_far_mesh.material = (
+		far_material
+	)
 
 	assert(
 		_renderer.register_prototype(
@@ -222,6 +410,7 @@ func _start_benchmark(
 		),
 		"Infantry render prototype should register."
 	)
+
 	assert(
 		_renderer.register_prototype(
 			1,
@@ -233,41 +422,84 @@ func _start_benchmark(
 		"Tank render prototype should register."
 	)
 
-	var build_start: int = Time.get_ticks_usec()
+	var build_start: int = (
+		Time.get_ticks_usec()
+	)
 
 	assert(
-		_renderer.build(_simulation_world),
+		_renderer.build(
+			_simulation_world
+		),
 		"Chunked MultiMesh renderer should build successfully."
 	)
 
-	_renderer.update_lod(_camera.global_position)
+	_renderer.update_lod(
+		_camera.global_position
+	)
+
 	_create_selection_controller()
 	_create_move_command_controller()
 
 	var build_milliseconds: float = (
-		float(Time.get_ticks_usec() - build_start)
+		float(
+			Time.get_ticks_usec()
+			- build_start
+		)
 		/ 1000.0
 	)
 
 	assert(
-		_renderer.rendered_instance_count() == _entity_count,
+		_renderer.rendered_instance_count()
+		== _entity_count,
 		"Every logical entity should have a visual instance."
 	)
+
 	assert(
 		_renderer.draw_group_count() > 2,
 		"Spatial chunks should create multiple render groups."
 	)
 
+	if navigation_playground_mode:
+		_benchmark_started = true
+
+		print(
+			(
+				"Navigation playground ready: "
+				+ "%d logical entities | "
+				+ "%d rendered instances | "
+				+ "%d chunk groups | "
+				+ "%.2f ms spawn | "
+				+ "%.2f ms renderer build"
+			)
+			% [
+				_simulation_world.entities.alive_count(),
+				_renderer.rendered_instance_count(),
+				_renderer.draw_group_count(),
+				spawn_milliseconds,
+				build_milliseconds,
+			]
+		)
+
+		_update_metrics()
+		return
+
 	var commanded_ids := PackedInt64Array()
 	var commanded_indices := PackedInt32Array()
 
-	for index: int in range(_commanded_entity_count):
-		var entity_id: int = entity_ids[index]
+	for index: int in range(
+		_commanded_entity_count
+	):
+		var entity_id: int = (
+			entity_ids[index]
+		)
 
-		commanded_ids.append(entity_id)
+		commanded_ids.append(
+			entity_id
+		)
 
 		var entity_index: int = (
-			_simulation_world.entities.get_index_if_alive(
+			_simulation_world.entities
+			.get_index_if_alive(
 				entity_id
 			)
 		)
@@ -277,12 +509,15 @@ func _start_benchmark(
 			"Every benchmark mover should still be alive."
 		)
 
-		commanded_indices.append(entity_index)
+		commanded_indices.append(
+			entity_index
+		)
 
 	var planner := FormationMovePlanner.new()
 
 	var benchmark_destination: Vector3 = (
-		_battlefield_center + MOVE_DESTINATION_OFFSET
+		_battlefield_center
+		+ MOVE_DESTINATION_OFFSET
 	)
 
 	var compact_slots: PackedVector3Array = (
@@ -338,18 +573,33 @@ func _start_benchmark(
 	)
 
 
-func _process(delta: float) -> void:
+func _process(
+	delta: float
+) -> void:
 	if not _benchmark_started:
 		return
 
-	_last_lod_changes = _renderer.update_lod(
-		_camera.global_position
+	_last_lod_changes = (
+		_renderer.update_lod(
+			_camera.global_position
+		)
 	)
 
-	var simulation_start: int = Time.get_ticks_usec()
-	var completed_steps: int = _simulation_world.advance(delta)
+	var simulation_start: int = (
+		Time.get_ticks_usec()
+	)
+
+	var completed_steps: int = (
+		_simulation_world.advance(
+			delta
+		)
+	)
+
 	var measured_simulation_milliseconds: float = (
-		float(Time.get_ticks_usec() - simulation_start)
+		float(
+			Time.get_ticks_usec()
+			- simulation_start
+		)
 		/ 1000.0
 	)
 
@@ -359,9 +609,13 @@ func _process(delta: float) -> void:
 		)
 
 		var changed_transform_indices: PackedInt32Array = (
-			_simulation_world.consume_changed_transform_indices()
+			_simulation_world
+			.consume_changed_transform_indices()
 		)
-		var upload_start: int = Time.get_ticks_usec()
+
+		var upload_start: int = (
+			Time.get_ticks_usec()
+		)
 
 		_last_updated_instances = (
 			_renderer.sync_changed_from_simulation(
@@ -370,17 +624,22 @@ func _process(delta: float) -> void:
 		)
 
 		assert(
-		_last_updated_instances
-		>= changed_transform_indices.size(),
-		"Changed transforms must not be dropped by rendering."
+			_last_updated_instances
+			>= changed_transform_indices.size(),
+			"Changed transforms must not be dropped by rendering."
 		)
+
 		assert(
-		_last_updated_instances <= _entity_count,
-		"No entity should upload more than one transform per tick."
+			_last_updated_instances
+			<= _entity_count,
+			"No entity should upload more than one transform per tick."
 		)
 
 		_last_upload_milliseconds = (
-			float(Time.get_ticks_usec() - upload_start)
+			float(
+				Time.get_ticks_usec()
+				- upload_start
+			)
 			/ 1000.0
 		)
 
@@ -407,10 +666,14 @@ func _create_far_unit_material() -> StandardMaterial3D:
 
 	material.albedo_color = Color.WHITE
 	material.vertex_color_use_as_albedo = true
+
 	material.shading_mode = (
 		BaseMaterial3D.SHADING_MODE_UNSHADED
 	)
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	material.cull_mode = (
+		BaseMaterial3D.CULL_DISABLED
+	)
 
 	return material
 
@@ -419,12 +682,26 @@ func _create_environment() -> void:
 	var world_environment := WorldEnvironment.new()
 	var environment := Environment.new()
 
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.055, 0.075, 0.095)
+	environment.background_mode = (
+		Environment.BG_COLOR
+	)
+
+	environment.background_color = Color(
+		0.055,
+		0.075,
+		0.095
+	)
+
 	environment.ambient_light_source = (
 		Environment.AMBIENT_SOURCE_COLOR
 	)
-	environment.ambient_light_color = Color(0.75, 0.8, 0.9)
+
+	environment.ambient_light_color = Color(
+		0.75,
+		0.8,
+		0.9
+	)
+
 	environment.ambient_light_energy = 0.75
 
 	world_environment.environment = environment
@@ -432,8 +709,18 @@ func _create_environment() -> void:
 
 	var sunlight := DirectionalLight3D.new()
 
-	sunlight.rotation_degrees = Vector3(-55.0, -35.0, 0.0)
-	sunlight.light_color = Color(1.0, 0.93, 0.82)
+	sunlight.rotation_degrees = Vector3(
+		-55.0,
+		-35.0,
+		0.0
+	)
+
+	sunlight.light_color = Color(
+		1.0,
+		0.93,
+		0.82
+	)
+
 	sunlight.light_energy = 1.1
 	sunlight.shadow_enabled = false
 
@@ -445,16 +732,167 @@ func _create_ground() -> void:
 	var plane := PlaneMesh.new()
 	var material := StandardMaterial3D.new()
 
-	plane.size = Vector2(240.0, 200.0)
+	if navigation_playground_mode:
+		plane.size = Vector2(
+			NAVIGATION_WORLD_SIZE.x,
+			NAVIGATION_WORLD_SIZE.y
+		)
 
-	material.albedo_color = Color(0.18, 0.24, 0.16)
+		ground.position = Vector3(
+			NAVIGATION_ORIGIN.x
+			+ NAVIGATION_WORLD_SIZE.x * 0.5,
+			-0.05,
+			NAVIGATION_ORIGIN.z
+			+ NAVIGATION_WORLD_SIZE.y * 0.5
+		)
+	else:
+		plane.size = Vector2(
+			240.0,
+			200.0
+		)
+
+		ground.position = (
+			_battlefield_center
+			+ Vector3.DOWN * 0.05
+		)
+
+	material.albedo_color = Color(
+		0.18,
+		0.24,
+		0.16
+	)
+
 	material.roughness = 1.0
 
 	plane.material = material
 	ground.mesh = plane
-	ground.position = _battlefield_center + Vector3.DOWN * 0.05
 
 	add_child(ground)
+
+
+func _configure_navigation_playground() -> void:
+	_simulation_world.configure_navigation(
+		NAVIGATION_ORIGIN,
+		NAVIGATION_WORLD_SIZE,
+		NAVIGATION_CELL_SIZE
+	)
+
+	for row: int in range(
+		NAVIGATION_WALL_START_ROW,
+		NAVIGATION_WALL_END_ROW + 1
+	):
+		if (
+			row >= NAVIGATION_GAP_START_ROW
+			and row <= NAVIGATION_GAP_END_ROW
+		):
+			continue
+
+		_simulation_world.set_navigation_cell_blocked(
+			Vector2i(
+				NAVIGATION_WALL_COLUMN,
+				row
+			),
+			true
+		)
+
+
+func _create_navigation_obstacle_preview() -> void:
+	var navigation_grid: NavigationGrid = (
+		_simulation_world.navigation_grid
+	)
+
+	var gap_cell_count: int = (
+		NAVIGATION_GAP_END_ROW
+		- NAVIGATION_GAP_START_ROW
+		+ 1
+	)
+
+	var wall_cell_count: int = (
+		NAVIGATION_WALL_END_ROW
+		- NAVIGATION_WALL_START_ROW
+		+ 1
+	)
+
+	var blocked_count: int = (
+		wall_cell_count
+		- gap_cell_count
+	)
+
+	var obstacle_mesh := BoxMesh.new()
+
+	obstacle_mesh.size = Vector3(
+		NAVIGATION_CELL_SIZE,
+		1.6,
+		NAVIGATION_CELL_SIZE
+	)
+
+	var obstacle_material := StandardMaterial3D.new()
+
+	obstacle_material.albedo_color = Color(
+		0.28,
+		0.29,
+		0.27
+	)
+
+	obstacle_material.roughness = 0.95
+	obstacle_mesh.material = obstacle_material
+
+	var multimesh := MultiMesh.new()
+
+	multimesh.transform_format = (
+		MultiMesh.TRANSFORM_3D
+	)
+
+	multimesh.mesh = obstacle_mesh
+	multimesh.instance_count = blocked_count
+
+	var instance_index: int = 0
+
+	for row: int in range(
+		NAVIGATION_WALL_START_ROW,
+		NAVIGATION_WALL_END_ROW + 1
+	):
+		if (
+			row >= NAVIGATION_GAP_START_ROW
+			and row <= NAVIGATION_GAP_END_ROW
+		):
+			continue
+
+		var cell_center: Vector3 = (
+			navigation_grid.cell_to_world(
+				Vector2i(
+					NAVIGATION_WALL_COLUMN,
+					row
+				)
+			)
+		)
+
+		cell_center.y = 0.8
+
+		multimesh.set_instance_transform(
+			instance_index,
+			Transform3D(
+				Basis.IDENTITY,
+				cell_center
+			)
+		)
+
+		instance_index += 1
+
+	var preview := MultiMeshInstance3D.new()
+
+	preview.name = (
+		"NavigationObstaclePreview"
+	)
+
+	preview.multimesh = multimesh
+
+	preview.cast_shadow = (
+		GeometryInstance3D
+		.SHADOW_CASTING_SETTING_OFF
+	)
+
+	add_child(preview)
 
 
 func _create_camera() -> void:
@@ -468,10 +906,19 @@ func _create_camera() -> void:
 		INITIAL_CAMERA_DISTANCE
 	)
 
+
 func _create_selection_controller() -> void:
-	_selection_controller = UnitSelectionController.new()
-	_selection_controller.name = "UnitSelectionController"
-	add_child(_selection_controller)
+	_selection_controller = (
+		UnitSelectionController.new()
+	)
+
+	_selection_controller.name = (
+		"UnitSelectionController"
+	)
+
+	add_child(
+		_selection_controller
+	)
 
 	assert(
 		_selection_controller.configure(
@@ -486,14 +933,19 @@ func _create_selection_controller() -> void:
 		_on_selection_changed
 	)
 
+
 func _create_move_command_controller() -> void:
 	_move_command_controller = (
 		UnitMoveCommandController.new()
 	)
+
 	_move_command_controller.name = (
 		"UnitMoveCommandController"
 	)
-	add_child(_move_command_controller)
+
+	add_child(
+		_move_command_controller
+	)
 
 	assert(
 		_move_command_controller.configure(
@@ -517,35 +969,70 @@ func _on_move_command_issued(
 	path_length: float
 ) -> void:
 	_last_group_command_count = accepted_count
+
 	_last_group_command_mode = (
 		"formation drag"
 		if formation
 		else "point move"
 	)
-	_last_planning_milliseconds = planning_milliseconds
-	_last_dispatch_milliseconds = dispatch_milliseconds
-	_last_command_path_length = path_length
 
-	assert(
-		accepted_count == _selection_controller.selected_count(),
-		"Every selected movable entity should accept the command."
+	_last_planning_milliseconds = (
+		planning_milliseconds
 	)
 
+	_last_dispatch_milliseconds = (
+		dispatch_milliseconds
+	)
+
+	_last_command_path_length = (
+		path_length
+	)
+
+	if navigation_playground_mode:
+		if (
+			accepted_count
+			!= _selection_controller.selected_count()
+		):
+			print(
+				(
+					"Navigation command rejected or partially rejected: "
+					+ "%d / %d units accepted."
+				)
+				% [
+					accepted_count,
+					_selection_controller.selected_count(),
+				]
+			)
+	else:
+		assert(
+			accepted_count
+			== _selection_controller.selected_count(),
+			"Every selected movable entity should accept the command."
+		)
+
 	_update_metrics()
+
 
 func _on_selection_changed(
 	entity_indices: PackedInt32Array,
 	elapsed_milliseconds: float
 ) -> void:
-	_selected_entity_count = entity_indices.size()
-	_last_selection_milliseconds = elapsed_milliseconds
+	_selected_entity_count = (
+		entity_indices.size()
+	)
+
+	_last_selection_milliseconds = (
+		elapsed_milliseconds
+	)
 
 	assert(
-		_last_updated_instances <= _entity_count,
+		_last_updated_instances
+		<= _entity_count,
 		"No entity should upload more than one transform per tick."
 	)
 
 	_update_metrics()
+
 
 func _create_hud() -> void:
 	var canvas := CanvasLayer.new()
@@ -555,29 +1042,60 @@ func _create_hud() -> void:
 
 	var panel := ColorRect.new()
 
-	panel.position = Vector2(12.0, 12.0)
-	panel.size = Vector2(640.0, 305.0)
-	panel.color = Color(0.02, 0.025, 0.035, 0.88)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.position = Vector2(
+		12.0,
+		12.0
+	)
+
+	panel.size = Vector2(
+		640.0,
+		325.0
+	)
+
+	panel.color = Color(
+		0.02,
+		0.025,
+		0.035,
+		0.88
+	)
+
+	panel.mouse_filter = (
+		Control.MOUSE_FILTER_IGNORE
+	)
+
 	canvas.add_child(panel)
 
 	_metrics_label = Label.new()
-	_metrics_label.position = Vector2(14.0, 12.0)
-	_metrics_label.size = Vector2(610.0, 280.0)
+
+	_metrics_label.position = Vector2(
+		14.0,
+		12.0
+	)
+
+	_metrics_label.size = Vector2(
+		610.0,
+		300.0
+	)
+
 	_metrics_label.add_theme_color_override(
 		"font_color",
 		Color.WHITE
 	)
+
 	_metrics_label.add_theme_color_override(
 		"font_outline_color",
 		Color.BLACK
 	)
+
 	_metrics_label.add_theme_constant_override(
 		"outline_size",
 		4
 	)
 
-	panel.add_child(_metrics_label)
+	panel.add_child(
+		_metrics_label
+	)
+
 	_update_metrics()
 
 
@@ -585,17 +1103,26 @@ func _update_metrics() -> void:
 	if _metrics_label == null:
 		return
 
-	var frames_per_second: float = Performance.get_monitor(
-		Performance.TIME_FPS
+	var frames_per_second: float = (
+		Performance.get_monitor(
+			Performance.TIME_FPS
+		)
 	)
+
 	var frame_milliseconds: float = (
-		1000.0 / maxf(frames_per_second, 1.0)
+		1000.0
+		/ maxf(
+			frames_per_second,
+			1.0
+		)
 	)
+
 	var draw_calls: int = int(
 		Performance.get_monitor(
 			Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME
 		)
 	)
+
 	var video_memory_megabytes: float = (
 		Performance.get_monitor(
 			Performance.RENDER_VIDEO_MEM_USED
@@ -608,13 +1135,63 @@ func _update_metrics() -> void:
 	var far_groups: int = 0
 
 	if _renderer != null:
-		render_groups = _renderer.draw_group_count()
-		near_groups = _renderer.near_lod_group_count()
-		far_groups = _renderer.far_lod_group_count()
+		render_groups = (
+			_renderer.draw_group_count()
+		)
+
+		near_groups = (
+			_renderer.near_lod_group_count()
+		)
+
+		far_groups = (
+			_renderer.far_lod_group_count()
+		)
+
+	var title_text: String
+	var scale_text: String
+	var instruction_text: String
+
+	if navigation_playground_mode:
+		title_text = (
+			"Dawnfall Navigation Playground"
+		)
+
+		scale_text = (
+			"%s total | Manual command mode\n"
+			% _format_entity_count(
+				_entity_count
+			)
+		)
+
+		instruction_text = (
+			"Select units | Right-click moves | "
+			+ "Right-drag forms | Route groups through the wall"
+		)
+	else:
+		title_text = (
+			"Dawnfall Standard Scale Benchmark"
+		)
+
+		scale_text = (
+			"%s total | Initial load: %s moving (25%%)\n"
+			% [
+				_format_entity_count(
+					_entity_count
+				),
+				_format_entity_count(
+					_commanded_entity_count
+				),
+			]
+		)
+
+		instruction_text = (
+			"Left-drag selects | Right-click moves | Right-drag forms"
+		)
 
 	_metrics_label.text = (
-		"Dawnfall Standard Scale Benchmark\n"
-		+ "%s total | Initial load: %s moving (25%%)\n"
+		title_text
+		+ "\n"
+		+ scale_text
 		+ "%d chunk groups | Near %d | Far %d\n"
 		+ "FPS: %.1f | Approx. frame: %.2f ms | Draw calls: %d\n"
 		+ "Last completed simulation tick: %.2f ms\n"
@@ -626,10 +1203,8 @@ func _update_metrics() -> void:
 		+ "Avoidance: %d examined | %d accepted | Max %d\n"
 		+ "LOD groups changed this frame: %d\n"
 		+ "Reported video memory: %.1f MB\n"
-		+ "Left-drag selects | Right-click moves | Right-drag forms"
+		+ instruction_text
 	) % [
-		_format_entity_count(_entity_count),
-		_format_entity_count(_commanded_entity_count),
 		render_groups,
 		near_groups,
 		far_groups,
@@ -657,7 +1232,9 @@ func _update_metrics() -> void:
 	]
 
 
-func _format_entity_count(value: int) -> String:
+func _format_entity_count(
+	value: int
+) -> String:
 	match value:
 		1000:
 			return "1,000"
