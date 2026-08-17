@@ -109,6 +109,8 @@ func try_fire(
 	if (
 		weapon.delivery_type
 		!= WeaponDefinition.DeliveryType.HITSCAN
+		and weapon.delivery_type
+		!= WeaponDefinition.DeliveryType.PROJECTILE
 	):
 		return FireResult.UNSUPPORTED_DELIVERY
 

@@ -10,6 +10,7 @@ var entities := EntityStore.new()
 var clock := FixedStepClock.new()
 var movement_system := MovementSystem.new()
 var combat_system := CombatSystem.new()
+var projectile_system := ProjectileSystem.new()
 var spatial_grid := SpatialGrid.new(8.0)
 var navigation_grid: NavigationGrid
 var targeting_system := TargetingSystem.new()
@@ -23,8 +24,12 @@ var last_grid_rebuild_milliseconds: float = 0.0
 var automatic_combat_enabled: bool = false
 
 var last_combat_milliseconds: float = 0.0
+var last_projectile_milliseconds: float = 0.0
 var last_auto_target_acquisition_count: int = 0
 var last_auto_fire_count: int = 0
+var last_projectile_impact_count: int = 0
+var total_projectile_spawn_count: int = 0
+var total_projectile_impact_count: int = 0
 
 
 var _changed_transform_indices := PackedInt32Array()
@@ -618,6 +623,15 @@ func fire_weapon(
 	if attacker_index < 0:
 		return CombatSystem.FireResult.INVALID
 
+	var target_index: int = (
+		entities.get_index_if_alive(
+			target_entity_id
+		)
+	)
+
+	if target_index < 0:
+		return CombatSystem.FireResult.INVALID
+
 	var definition_index: int = (
 		entities.definition_indices[
 			attacker_index
@@ -653,6 +667,25 @@ func fire_weapon(
 		]
 	)
 
+	if (
+		weapon.delivery_type
+		== WeaponDefinition.DeliveryType.PROJECTILE
+	):
+		if weapon.projectile_speed <= 0.0:
+			return CombatSystem.FireResult.INVALID
+
+		var projectile_offset: Vector3 = (
+			entities.positions[
+				target_index
+			]
+			- entities.positions[
+				attacker_index
+			]
+		)
+
+		if projectile_offset.length_squared() <= 0.000001:
+			return CombatSystem.FireResult.INVALID
+
 	var fire_result: int = (
 		combat_system.try_fire(
 			entities,
@@ -671,10 +704,43 @@ func fire_weapon(
 	):
 		return fire_result
 
-	apply_damage(
-		target_entity_id,
-		weapon.base_damage
-	)
+	match weapon.delivery_type:
+		WeaponDefinition.DeliveryType.HITSCAN:
+			apply_damage(
+				target_entity_id,
+				weapon.base_damage
+			)
+
+		WeaponDefinition.DeliveryType.PROJECTILE:
+			var start_position: Vector3 = (
+				entities.positions[
+					attacker_index
+				]
+				+ Vector3.UP * 0.8
+			)
+
+			var target_position: Vector3 = (
+				entities.positions[
+					target_index
+				]
+				+ Vector3.UP * 0.8
+			)
+
+			var projectile_index: int = (
+				projectile_system.spawn_projectile(
+					start_position,
+					target_position,
+					target_entity_id,
+					weapon.projectile_speed,
+					weapon.base_damage,
+					weapon.maximum_range
+				)
+			)
+
+			if projectile_index < 0:
+				return CombatSystem.FireResult.INVALID
+
+			total_projectile_spawn_count += 1
 
 	return fire_result
 
@@ -946,11 +1012,11 @@ func _run_automatic_combat() -> void:
 				] = EntityId.INVALID
 				continue
 
-			# Physical projectile weapons enter later.
-			# B4 only automates the hitscan path proven in B2.
 			if (
 				weapon.delivery_type
 				!= WeaponDefinition.DeliveryType.HITSCAN
+				and weapon.delivery_type
+				!= WeaponDefinition.DeliveryType.PROJECTILE
 			):
 				target_ids[
 					weapon_slot
@@ -1126,6 +1192,51 @@ func _simulate_tick(
 		last_combat_milliseconds = 0.0
 		last_auto_target_acquisition_count = 0
 		last_auto_fire_count = 0
+
+	var projectile_start: int = (
+		Time.get_ticks_usec()
+	)
+
+	projectile_system.step(
+		entities,
+		delta_seconds
+	)
+
+	var impact_target_ids: PackedInt64Array = (
+		projectile_system.consume_impact_target_ids()
+	)
+
+	var impact_damages: PackedFloat32Array = (
+		projectile_system.consume_impact_damages()
+	)
+
+	last_projectile_impact_count = (
+		impact_target_ids.size()
+	)
+
+	total_projectile_impact_count += (
+		last_projectile_impact_count
+	)
+
+	for impact_index: int in range(
+		impact_target_ids.size()
+	):
+		apply_damage(
+			impact_target_ids[
+				impact_index
+			],
+			impact_damages[
+				impact_index
+			]
+		)
+
+	last_projectile_milliseconds = (
+		float(
+			Time.get_ticks_usec()
+			- projectile_start
+		)
+		/ 1000.0
+	)
 
 
 func _advance_shared_route_followers() -> void:

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b1s8btoifaawk"]
+
+[ext_resource type="Script" uid="uid://4wa6wl73r741" path="res://tests/rendering/physical_projectile_test.gd" id="1_eckrq"]
+
+[node name="PhysicalProjectileTest" type="Node3D" unique_id=338870366]
+script = ExtResource("1_eckrq")
